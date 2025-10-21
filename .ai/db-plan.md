@@ -9,7 +9,7 @@ Poniższy dokument zawiera kompletny schemat bazy danych zaprojektowany dla apli
 Uwaga: klucze główne są typu UUID (zalecane dla rozproszonego środowiska). Czasowe pola wykorzystują timestamptz.
 
 ### 1.1. `users` — dane kont użytkowników i ich status
-
+Tabela users bedzie wykorzystywana w Supabase Auth do zarządzania uwierzytelnianiem.
 CREATE TABLE (opis):
 - id: uuid PRIMARY KEY DEFAULT gen_random_uuid()
 - email: varchar(255) NOT NULL UNIQUE
@@ -187,7 +187,6 @@ CREATE TABLE tasks (
   explanation text,
   created_by uuid REFERENCES users(id) ON DELETE SET NULL,
   is_active boolean NOT NULL DEFAULT true,
-  metadata jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
