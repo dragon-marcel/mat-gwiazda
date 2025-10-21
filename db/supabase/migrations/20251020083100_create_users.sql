@@ -37,7 +37,7 @@ create table if not exists users (
   email varchar(255) not null unique,
   password varchar(255) not null,
   user_name varchar(100) not null,
-  role user_role not null default 'student',
+  role varchar(10) not null default 'student',
   current_level smallint not null default 1 check (current_level >= 1 and current_level <= 8),
   points integer not null default 0 check (points >= 0),
   stars integer not null default 0 check (stars >= 0),
