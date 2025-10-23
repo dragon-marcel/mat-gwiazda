@@ -26,6 +26,7 @@ Common notes:
 
 1) POST /api/v1/auth/register
 - Description: Register a new user.
+- Security note: No JWT Bearer security
 - Request JSON:
   {
     "email": "user@example.com",
@@ -47,6 +48,7 @@ Common notes:
 
 2) POST /api/v1/auth/login
 - Description: Authenticate and return JWT access token (+ optional refresh token).
+- Security note: No JWT Bearer security
 - Request JSON:
   {"email":"user@example.com","password":"plaintext_password"}
 - Response 200 OK:
@@ -55,18 +57,31 @@ Common notes:
 
 3) POST /api/v1/auth/refresh
 - Description: Refresh access token using refresh token
-- Response 200 OK: {"accessToken":"<jwt>", "expiresIn":3600}
+- Security note: No JWT Bearer security
+- Request JSON:
+  {
+     "refreshToken": "<refresh_token>"
+  }
+- Response 200 OK:
+  {
+      "accessToken":"<jwt>",
+      "expiresIn":3600,
+      "refreshToken":"<refresh_token>"
+  }
+- Errors: 400 Bad Request (malformed), 401 Unauthorized (invalid/expired refresh token)
 
 ### Users
 
 1) GET /api/v1/users/me
 - Description: Get current user profile.
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
+- Request: Authorization header with Bearer token.
 - Response 200:
   {
     "id":"uuid",
     "email":"...",
     "userName":"...",
-    "role":"student|teacher|admin",
+    "role":"student|admin",
     "currentLevel":1,
     "points": 12,
     "stars": 0,
@@ -79,58 +94,106 @@ Common notes:
 
 2) PATCH /api/v1/users/me
 - Description: Partial update of profile (userName, password)
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
 - Request JSON (any subset):
-  {"userName":"New name","password":"new_password"}
+  {
+     "userName":"New name",
+     "password":"new_password"
+  }
 - Validations: userName length <=100; password >=8.
-- Response 200: updated user object.
+  - Response 200:
+  {
+     "id": "9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+     "email": "user@example.com",
+     "userName": "New name",
+     "role": "student",
+     "currentLevel": 1,
+     "points": 12,
+     "stars": 0,
+     "isActive": true,
+     "createdAt": "2025-10-23T12:34:56Z",
+     "updatedAt": "2025-10-23T12:45:00Z",
+     "lastActiveAt": "2025-10-23T12:45:00Z"
+    }
 
 3) GET /api/v1/users/{id}
 - Description: Admin-only: read other users
-- Response 200: user object
-- Auth: role=admin
+- Security note: JWT Bearer security required, role `ADMIN`
+- Response 200:
+  {
+    "id": "9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+    "email": "user@example.com",
+    "userName": "New name",
+    "role": "student",
+    "currentLevel": 1,
+    "points": 12,
+    "stars": 0,
+    "isActive": true,
+    "createdAt": "2025-10-23T12:34:56Z",
+    "updatedAt": "2025-10-23T12:45:00Z",
+    "lastActiveAt": "2025-10-23T12:45:00Z"
+  }
 
 4) DELETE /api/v1/users/me
 - Description: Soft-delete or disable account (implementation choice). For MVP, set `is_active=false`.
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
 - Response 204 No Content
-- Note: Deleting cascades to `progress` in DB if hard-delete used. Prefer soft-delete to preserve analytics.
-
+- 
 ### Tasks (task instances)
 Tasks in DB are treated as per-attempt instances created by AI or admin. For the user flow, the server will generate or fetch a task instance and return it.
 
 1) POST /api/v1/tasks/generate
 - Description: Generate a new task for the current user at their current level (or specified level <= currentLevel+1).
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
 - Request JSON (optional):
-  {"level": 2, "source":"ai"}
+  {
+    "level": 2,
+    "createdById":"9f8b7c6a-1234-4d5e-8f90-abcdef123456"
+  }
 - Validation: level between 1 and 8; only allow generation for levels appropriate to user (e.g. user.currentLevel or +/-1 depending policy).
 - Rate limiting: per-user and per-IP (e.g. 10/min) to avoid abuse of AI cost.
-- Response 201 Created:
-  {
-    "taskId":"uuid",
-    "level":2,
-    "prompt":"What is 7+5?",
-    "options":["10","11","12","13"],
-    "createdAt":"iso",
-    "isActive":true
-  }
+  - Response 201 Created:
+    {
+       "id": "9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+       "level": 2,
+       "prompt": "What is 7+5?",
+       "options": ["10", "11", "12", "13"],
+       "correctOptionIndex": null,
+       "explanation": null,
+       "createdById": "9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+       "isActive": true,
+       "createdAt": "2025-10-23T12:34:56Z",
+       "updatedAt": "2025-10-23T12:45:00Z"
+    }
 - Side effects: create `tasks` row and a corresponding `progress` row with `is_correct=false` and no selected_option yet, or alternatively defer creating `progress` until answer submission. For strict 1:1 tasks->progress, create both now and return progressId.
 
 2) GET /api/v1/tasks/{taskId}
 - Description: Fetch a task instance (only owner or admin).
-- Response 200: task object.
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
+- Response 200: task object:
+    {
+       "id": "9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+       "level": 2,
+       "prompt": "What is 7+5?",
+       "options": ["10", "11", "12", "13"],
+       "correctOptionIndex": null,
+       "explanation": null,
+       "createdById": "9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+       "isActive": true,
+       "createdAt": "2025-10-23T12:34:56Z",
+       "updatedAt": "2025-10-23T12:45:00Z"
+    }
 
-3) PATCH /api/v1/tasks/{taskId}
-- Description: Admin/editor: update explanation, deactivate task, or patch metadata.
-- Auth: role=admin or creator.
-- Response 200
-
-4) GET /api/v1/tasks?level=&isActive=&page=&size=&sort=
+3) GET /api/v1/tasks?level=&isActive=&page=&size=&sort=
 - Description: Admin or content editors list and filter tasks.
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
 - Supports filters: level (1..8), isActive (true/false), createdBy, metadata tag.
 
 ### Progress (submit answers & history)
 
 1) POST /api/v1/progress/submit
 - Description: Submit an answer for a task. This implements key business logic (award points, stars, level up).
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
 - Request JSON:
   {
     "taskId":"uuid",
@@ -153,7 +216,7 @@ Tasks in DB are treated as per-attempt instances created by AI or admin. For the
     "isCorrect": true,
     "pointsAwarded": 1,
     "userPoints": 51,
-    "starsAwarded": 1, // zero or one
+    "starsAwarded": 1, 
     "leveledUp": true,
     "newLevel": 2,
     "explanation": "Because 7+5=12"
@@ -162,28 +225,69 @@ Tasks in DB are treated as per-attempt instances created by AI or admin. For the
 
 2) GET /api/v1/progress
 - Description: Get paginated list of user's attempts.
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
 - Query params: page,size,sort,isCorrect,from,to
-- Response 200: {"items":[{progress rows}], "page":0, "size":20, "total":500}
+  - Response 200:
+    {
+    "items":
+      [
+        {
+        "id":"9f8b7c6a-1234-4d5e-8f90-abcdef123456",
+        "userId":"3a2b1c4d-5678-90ab-cdef-1234567890ab",
+        "taskId":"7b6a5c4d-1234-4d5e-8f90-abcdef123456",
+        "attemptNumber":1,
+        "selectedOptionIndex":2,
+        "isCorrect":true,
+        "pointsAwarded":1,
+        "timeTakenMs":12345,
+        "createdAt":"2025-10-23T12:34:56Z",
+        "updatedAt":"2025-10-23T12:45:00Z"
+        },
+        {
+        "id":"2e3f4a5b-6789-01ab-cdef-234567890abc",
+        "userId":"3a2b1c4d-5678-90ab-cdef-1234567890ab",
+        "taskId":"8c7b6a5d-2345-4d5e-8f90-bcdfef123457",
+        "attemptNumber":2,
+        "selectedOptionIndex":null,
+        "isCorrect":false,
+        "pointsAwarded":0,
+        "timeTakenMs":null,
+        "createdAt":"2025-10-23T12:50:00Z",
+        "updatedAt":"2025-10-23T12:50:00Z"
+        }
+    ],
+        "page":0,
+        "size":20,
+        "total":500
+    }
 
 3) GET /api/v1/progress/{id}
-- Description: Get single attempt (owner or admin)
+- Description: Get single attempt
+- Security note: JWT Bearer security required, role `STUDENT, ADMIN`
+  - response 200:
+     {
+         "id":"2e3f4a5b-6789-01ab-cdef-234567890abc",
+         "userId":"3a2b1c4d-5678-90ab-cdef-1234567890ab",
+         "taskId":"8c7b6a5d-2345-4d5e-8f90-bcdfef123457",
+         "attemptNumber":2,
+         "selectedOptionIndex":null,
+         "isCorrect":false,
+         "pointsAwarded":0,
+         "timeTakenMs":null,
+         "createdAt":"2025-10-23T12:50:00Z",
+         "updatedAt":"2025-10-23T12:50:00Z"
+     }
 
 ### Admin / Management
 
-1) GET /api/v1/admin/users?filter=
+1) GET /api/v1/admin/users
 - Description: Admin-only user listing and bulk operations.
+- Security note: JWT Bearer security required, role `ADMIN`
 
-2) POST /api/v1/admin/tasks
-- Description: Create curated task templates (not per-attempt) for reuse. Admin creates tasks with `created_by` set.
-
-3) DELETE /api/v1/admin/tasks/{id}
-- Description: Soft-delete or deactivate a task.
-
----
 
 ## 3. Authentication & Authorization
 - Mechanism: JWT access tokens issued from Spring Security (OAuth2 / JWT). Use refresh tokens for long-lived sessions.
-- Roles: `student`, `teacher`, `admin` (from DB enum `user_role`). Map JWT claims to Spring Security roles.
+- Roles: `student`, `admin` (from DB enum `user_role`). Map JWT claims to Spring Security roles.
 - DB RLS: For Supabase/Postgres setups, enable Row Level Security and use `current_setting('app.current_user_id')` or `auth.uid()` to match policies. The API server should SET LOCAL `app.current_user_id` = <user-uuid> in DB connection/session before executing queries to honor RLS.
 - Authorization rules in API:
   - Users may read/update their own `users` row and their `progress` entries.
@@ -200,7 +304,7 @@ Users
 - email: required, valid email format, unique (DB constraint). (db-plan: `email varchar(255) NOT NULL UNIQUE`)
 - password: required, min length 8; store hashed using bcrypt/argon2. (db-plan: `password varchar(255) NOT NULL`)
 - user_name: required, <=100 chars. (db-plan: `user_name varchar(100) NOT NULL`)
-- role: enum: student|teacher|admin (db-plan `CREATE TYPE user_role AS ENUM ('student','teacher','admin')`)
+- role: enum: student|teacher|admin (db-plan `CREATE TYPE user_role AS ENUM ('student','admin')`)
 - current_level: 1..8 (db-plan check)
 - points, stars: integers >=0
 
