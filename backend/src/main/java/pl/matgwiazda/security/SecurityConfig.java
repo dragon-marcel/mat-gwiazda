@@ -28,14 +28,18 @@ public class SecurityConfig {
         JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService, userRepository);
 
         http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(new JwtAuthenticationEntryPoint()))
-            .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/v1/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(new JwtAuthenticationEntryPoint()))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN")
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/progress/**").hasAnyRole("STUDENT", "ADMIN")
+                        .requestMatchers("/api/v1/tasks/**").hasAnyRole("STUDENT", "ADMIN")
+                        .requestMatchers("/api/v1/users/**").hasAnyRole("STUDENT", "ADMIN")
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         // Allow H2 console frames (dev only)
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
