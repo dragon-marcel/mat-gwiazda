@@ -1,15 +1,6 @@
 package pl.matgwiazda.domain.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -32,7 +23,7 @@ public class Progress {
     private Task task;
 
     @Column(name = "attempt_number", nullable = false)
-    private int attemptNumber = 1;
+    private int attemptNumber = 0;
 
     @Column(name = "selected_option_index")
     private Short selectedOptionIndex;
@@ -52,7 +43,8 @@ public class Progress {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public Progress() {}
+    public Progress() {
+    }
 
     @PrePersist
     protected void onCreate() {
@@ -67,33 +59,83 @@ public class Progress {
     }
 
     // getters/setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
+    public UUID getId() {
+        return id;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public Task getTask() { return task; }
-    public void setTask(Task task) { this.task = task; }
+    public User getUser() {
+        return user;
+    }
 
-    public int getAttemptNumber() { return attemptNumber; }
-    public void setAttemptNumber(int attemptNumber) { this.attemptNumber = attemptNumber; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public Short getSelectedOptionIndex() { return selectedOptionIndex; }
-    public void setSelectedOptionIndex(Short selectedOptionIndex) { this.selectedOptionIndex = selectedOptionIndex; }
+    public Task getTask() {
+        return task;
+    }
 
-    public boolean isCorrect() { return isCorrect; }
-    public void setCorrect(boolean correct) { isCorrect = correct; }
+    public void setTask(Task task) {
+        this.task = task;
+    }
 
-    public int getPointsAwarded() { return pointsAwarded; }
-    public void setPointsAwarded(int pointsAwarded) { this.pointsAwarded = pointsAwarded; }
+    public int getAttemptNumber() {
+        return attemptNumber;
+    }
 
-    public Integer getTimeTakenMs() { return timeTakenMs; }
-    public void setTimeTakenMs(Integer timeTakenMs) { this.timeTakenMs = timeTakenMs; }
+    public void setAttemptNumber(int attemptNumber) {
+        this.attemptNumber = attemptNumber;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Short getSelectedOptionIndex() {
+        return selectedOptionIndex;
+    }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setSelectedOptionIndex(Short selectedOptionIndex) {
+        this.selectedOptionIndex = selectedOptionIndex;
+    }
+
+    public boolean isCorrect() {
+        return isCorrect;
+    }
+
+    public void setCorrect(boolean correct) {
+        isCorrect = correct;
+    }
+
+    public int getPointsAwarded() {
+        return pointsAwarded;
+    }
+
+    public void setPointsAwarded(int pointsAwarded) {
+        this.pointsAwarded = pointsAwarded;
+    }
+
+    public Integer getTimeTakenMs() {
+        return timeTakenMs;
+    }
+
+    public void setTimeTakenMs(Integer timeTakenMs) {
+        this.timeTakenMs = timeTakenMs;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }
