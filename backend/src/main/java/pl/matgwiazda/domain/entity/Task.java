@@ -1,17 +1,12 @@
 package pl.matgwiazda.domain.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -29,9 +24,10 @@ public class Task {
     @Column(name = "prompt", nullable = false, columnDefinition = "text")
     private String prompt;
 
-    // store options as jsonb string
+    // store options as jsonb (List<String>) using Hibernate 6 JDBC type code
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "options", nullable = false, columnDefinition = "jsonb")
-    private String options;
+    private List<String> options = new ArrayList<>();
 
     @Column(name = "correct_option_index", nullable = false)
     private short correctOptionIndex;
@@ -68,33 +64,83 @@ public class Task {
     }
 
     // getters/setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
+    public UUID getId() {
+        return id;
+    }
 
-    public short getLevel() { return level; }
-    public void setLevel(short level) { this.level = level; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public String getPrompt() { return prompt; }
-    public void setPrompt(String prompt) { this.prompt = prompt; }
+    public short getLevel() {
+        return level;
+    }
 
-    public String getOptions() { return options; }
-    public void setOptions(String options) { this.options = options; }
+    public void setLevel(short level) {
+        this.level = level;
+    }
 
-    public short getCorrectOptionIndex() { return correctOptionIndex; }
-    public void setCorrectOptionIndex(short correctOptionIndex) { this.correctOptionIndex = correctOptionIndex; }
+    public String getPrompt() {
+        return prompt;
+    }
 
-    public String getExplanation() { return explanation; }
-    public void setExplanation(String explanation) { this.explanation = explanation; }
+    public void setPrompt(String prompt) {
+        this.prompt = prompt;
+    }
 
-    public User getCreatedBy() { return createdBy; }
-    public void setCreatedBy(User createdBy) { this.createdBy = createdBy; }
+    public List<String> getOptions() {
+        return options;
+    }
 
-    public boolean isActive() { return isActive; }
-    public void setActive(boolean active) { isActive = active; }
+    public void setOptions(List<String> options) {
+        this.options = options;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public short getCorrectOptionIndex() {
+        return correctOptionIndex;
+    }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setCorrectOptionIndex(short correctOptionIndex) {
+        this.correctOptionIndex = correctOptionIndex;
+    }
+
+    public String getExplanation() {
+        return explanation;
+    }
+
+    public void setExplanation(String explanation) {
+        this.explanation = explanation;
+    }
+
+    public User getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }
