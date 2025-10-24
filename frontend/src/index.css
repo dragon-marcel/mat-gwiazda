@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* small helpers */
+.input {
+  @apply mt-1 block w-full border rounded px-3 py-2;
+}
+.btn-primary {
+  @apply w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700;
+}
+.btn-ghost {
+  @apply bg-transparent text-blue-600 underline;
+}
+
