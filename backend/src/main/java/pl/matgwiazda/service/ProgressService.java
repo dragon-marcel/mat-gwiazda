@@ -64,15 +64,16 @@ public class ProgressService {
         boolean isCorrect = determineCorrectness(cmd.getSelectedOptionIndex(), task.getCorrectOptionIndex());
         int pointsAwarded = isCorrect ? 1 : 0;
 
-        // Update user stats and persist
-        updateUserStats(user, pointsAwarded);
+        // Update user stats and persist. Now returns the number of levels gained (stars awarded).
+        int levelsGained = updateUserStatsAndReturnLevelsGained(user, pointsAwarded);
+        boolean levelUp = levelsGained > 0;
         userRepository.save(user);
 
         // Upsert progress
-        Progress savedProgress = upsertProgress(user, task, cmd, isCorrect, pointsAwarded);
+        Progress savedProgress = upsertProgress(user, task, cmd, isCorrect, pointsAwarded, levelUp);
 
-        // Prepare and return response
-        ProgressSubmitResponseDto response = buildResponse(savedProgress, user, pointsAwarded, isCorrect);
+        // Prepare and return response (include actual stars awarded count)
+        ProgressSubmitResponseDto response = buildResponse(savedProgress, user, levelsGained);
         log.info("submitProgress completed: userId={}, taskId={}, progressId={}, isCorrect={}", userId, cmd.getTaskId(), savedProgress.getId(), isCorrect);
         return response;
     }
@@ -90,25 +91,29 @@ public class ProgressService {
         return selectedOptionIndex != null && selectedOptionIndex == correctIndex;
     }
 
-    private void updateUserStats(User user, int pointsAwarded) {
+    /**
+     * Update user's points/level/stars and return how many levels (stars) were gained by this submission.
+     */
+    private int updateUserStatsAndReturnLevelsGained(User user, int pointsAwarded) {
         int newUserPoints = user.getPoints() + pointsAwarded;
         int previousThresholdCount = user.getPoints() / 50;
         int newThresholdCount = newUserPoints / 50;
         int levelsGained = Math.max(0, newThresholdCount - previousThresholdCount);
-        int starsAwarded = levelsGained;
 
         user.setPoints(newUserPoints);
-        user.setStars(user.getStars() + starsAwarded);
+        user.setStars(user.getStars() + levelsGained);
         user.setCurrentLevel((short) (user.getCurrentLevel() + levelsGained));
+        return levelsGained;
     }
 
-    private Progress upsertProgress(User user, Task task, ProgressSubmitCommand cmd, boolean isCorrect, int pointsAwarded) {
+    private Progress upsertProgress(User user, Task task, ProgressSubmitCommand cmd, boolean isCorrect, int pointsAwarded, boolean levelUp) {
         // mark task active flag according to correctness (business rule contained here)
         task.setActive(!isCorrect);
 
         Optional<Progress> existing = progressRepository.findByUserIdAndTaskId(user.getId(), task.getId());
         Progress progress = existing.orElseGet(Progress::new);
         progress.setUser(user);
+        progress.setLevelUp(levelUp);
         progress.setTask(task);
         progress.setAttemptNumber(progress.getAttemptNumber() + 1);
         progress.setSelectedOptionIndex(cmd.getSelectedOptionIndex());
@@ -119,9 +124,9 @@ public class ProgressService {
         return progressRepository.save(progress);
     }
 
-    private ProgressSubmitResponseDto buildResponse(Progress saved, User user, int pointsAwarded, boolean isCorrect) {
+    private ProgressSubmitResponseDto buildResponse(Progress saved, User user, int starsAwarded) {
         String explanation = saved.getTask() != null ? saved.getTask().getExplanation() : null;
-        return new ProgressSubmitResponseDto(saved.getId(), isCorrect, pointsAwarded, user.getPoints(), 0, false, user.getCurrentLevel(), explanation);
+        return new ProgressSubmitResponseDto(saved.getId(), saved.isCorrect(), saved.getPointsAwarded(), user.getPoints(), starsAwarded, saved.isLevelUp(), user.getCurrentLevel(), explanation);
     }
 
     private ProgressDto toDto(Progress p) {

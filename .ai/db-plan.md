@@ -197,6 +197,7 @@ CREATE TABLE progress (
   task_id uuid NOT NULL REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE,
   attempt_number integer NOT NULL DEFAULT 1,
   selected_option_index smallint,
+  level_updated boolean NOT NULL DEFAULT false,
   is_correct boolean NOT NULL,
   points_awarded integer NOT NULL DEFAULT 0 CHECK (points_awarded >= 0),
   created_at timestamptz NOT NULL DEFAULT now(),

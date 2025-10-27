@@ -31,6 +31,9 @@ public class Progress {
     @Column(name = "is_correct", nullable = false)
     private boolean isCorrect;
 
+    @Column(name = "level_up", nullable = false)
+    private boolean levelUp;
+
     @Column(name = "points_awarded", nullable = false)
     private int pointsAwarded = 0;
 
@@ -105,6 +108,14 @@ public class Progress {
 
     public void setCorrect(boolean correct) {
         isCorrect = correct;
+    }
+
+    public boolean isLevelUp() {
+        return levelUp;
+    }
+
+    public void setLevelUp(boolean levelUp) {
+        this.levelUp = levelUp;
     }
 
     public int getPointsAwarded() {

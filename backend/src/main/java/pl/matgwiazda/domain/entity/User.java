@@ -43,7 +43,7 @@ public class User {
     private int points = 0;
 
     @Column(name = "stars", nullable = false)
-    private int stars = 0;
+    private int stars = 1;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
