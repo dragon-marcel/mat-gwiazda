@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/ui/Button';
 import Stars from '../components/ui/Stars';
+import PlayView from '../components/PlayView';
 
 const PlayPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -12,7 +13,7 @@ const PlayPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       <div className="max-w-4xl mx-auto p-6">
         <header className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Witaj w MatGwiazda<Stars count={1} inline size="lg"/></h1>
+          <h1 className="text-2xl font-bold">MatGwiazda</h1>
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={toggle} aria-pressed={theme === 'dark'}>
               {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
@@ -37,12 +38,9 @@ const PlayPage: React.FC = () => {
           </section>
 
           <section>
-            <h3 className="text-md font-medium mb-2">Rozpocznij grę</h3>
-            <p className="text-sm text-muted-foreground">Wybierz zadanie, aby rozpocząć rozwiązywanie i zdobywać gwiazdki.</p>
-            {/* Placeholder for play actions */}
+            {/* PlayView: główny widok gry */}
             <div className="mt-4">
-              {/* Make this the primary CTA similar to register/login main action */}
-              <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">Rozpocznij</Button>
+              <PlayView />
             </div>
           </section>
         </main>
