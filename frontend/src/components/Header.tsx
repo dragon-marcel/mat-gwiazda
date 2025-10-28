@@ -13,6 +13,7 @@ const Header: React.FC = () => {
   const isPlayActive = location.pathname.startsWith('/play') || location.pathname === '/';
   const isProfileActive = location.pathname.startsWith('/profile');
   const isTasksActive = location.pathname.startsWith('/tasks');
+  const isAdminActive = location.pathname.startsWith('/admin');
 
   return (
     <header className="flex items-center justify-between mb-6">
@@ -54,6 +55,18 @@ const Header: React.FC = () => {
         >
           Profil
         </Button>
+
+        {/* Admin link is visible only to admins */}
+        {user?.role === 'ADMIN' && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => navigate('/admin/users')}
+            className={isAdminActive ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 font-semibold' : undefined}
+          >
+            Admin
+          </Button>
+        )}
 
         <Button variant="ghost" onClick={toggle} aria-pressed={theme === 'dark'}>
           {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}

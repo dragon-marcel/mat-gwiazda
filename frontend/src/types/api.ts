@@ -23,6 +23,8 @@ export type UserDto = {
   points?: number;
   stars?: number;
   role?: string; // optional role (e.g. 'ADMIN', 'STUDENT') provided by backend
+  active?: boolean; // maps to backend UserDto.isActive -> serialized as 'active'
+  isActive?: boolean; // fallback if backend provides the boolean under this name
 };
 
 // Task / Play related types used by frontend
@@ -71,4 +73,26 @@ export type ProgressSubmitResponseDto = {
   leveledUp: boolean;
   newLevel?: number;
   explanation?: string | null;
+};
+
+// Learning levels types — mirror backend migration and DTOs
+export type LearningLevelDto = {
+  level: number; // smallint primary key
+  title: string;
+  description: string;
+  createdBy?: string | null;
+  createdAt?: string | null; // ISO timestamp
+  modifiedBy?: string | null;
+  modifiedAt?: string | null; // ISO timestamp
+};
+
+export type CreateLearningLevelCommand = {
+  level: number;
+  title: string;
+  description: string;
+};
+
+export type UpdateLearningLevelCommand = {
+  title?: string;
+  description?: string;
 };

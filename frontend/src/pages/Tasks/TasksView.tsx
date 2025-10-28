@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTasksQuery, useTaskQuery, useGenerateTask, type TaskDto, type Page } from '../../hooks/useTasks';
+import { useTasksQuery, useTaskQuery } from '../../hooks/useTasks';
 import TasksFilterBar from './components/TasksFilterBar';
 import TasksTable from './components/TasksTable';
 import TaskDetailsModal from './components/TaskDetailsModal';
-import TaskGenerateDialog from './components/TaskGenerateDialog';
 import { Button } from '../../components/ui/Button';
 import PageLayout from '../../components/PageLayout';
 
@@ -16,13 +15,11 @@ const TasksView: React.FC = () => {
   const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [showGenerate, setShowGenerate] = useState(false);
 
   const params = useMemo(() => ({ page, size, ...filters, ...(user?.id ? { createdById: user.id } : {}) }), [page, size, filters, user?.id]);
 
   const { data, isLoading, error } = useTasksQuery(params);
   const taskQuery = useTaskQuery(selectedTaskId);
-  const generateMutation = useGenerateTask();
 
   const handleFilterChange = (next: Record<string, any>) => {
     setPage(0);
@@ -35,30 +32,13 @@ const TasksView: React.FC = () => {
 
   const handleCloseDetails = () => setSelectedTaskId(null);
 
-  const handleGenerate = async (level: number | undefined) => {
-    try {
-      await generateMutation.mutateAsync({ level, createdById: user?.id ?? null });
-      setShowGenerate(false);
-      // react-query invalidates and refetches
-    } catch (e) {
-      // error handled via mutation.error if needed
-    }
-  };
-
   return (
     <PageLayout title="Przegląd zadań">
       <main className="relative bg-white dark:bg-slate-800 rounded-md shadow-md p-6 overflow-hidden">
         <section className="mb-4">
           <div className="flex items-center justify-between">
             <div />
-            <div>
-              {(() => {
-                const role = user?.role;
-                const canGenerate = !role || ['ADMIN', 'CREATOR'].includes(role);
-                if (!canGenerate) return null;
-                return <Button onClick={() => setShowGenerate(true)}>Generuj zadanie</Button>;
-              })()}
-            </div>
+            <div />
           </div>
         </section>
 
@@ -85,10 +65,6 @@ const TasksView: React.FC = () => {
 
           {selectedTaskId && taskQuery.data && (
             <TaskDetailsModal task={taskQuery.data} onClose={handleCloseDetails} />
-          )}
-
-          {showGenerate && (
-            <TaskGenerateDialog onClose={() => setShowGenerate(false)} onGenerate={handleGenerate} />
           )}
 
           {error && (
