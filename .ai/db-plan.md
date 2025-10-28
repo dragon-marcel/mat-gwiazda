@@ -224,7 +224,7 @@ Przykładowa definicja SQL do migracji:
 
 -- learning_levels
 CREATE TABLE learning_levels (
-  level smallint PRIMARY KEY CHECK (level >= 1 AND level <= 8),
+  level smallint PRIMARY KEY CHECK (level >= 1),
   title varchar(128) NOT NULL,
   description text NOT NULL,
   created_by uuid REFERENCES users(id) ON DELETE SET NULL,

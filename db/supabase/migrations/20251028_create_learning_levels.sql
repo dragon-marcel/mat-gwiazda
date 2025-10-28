@@ -5,7 +5,7 @@ BEGIN;
 
 -- Create learning_levels table
 CREATE TABLE IF NOT EXISTS learning_levels (
-  level smallint PRIMARY KEY CHECK (level >= 1 AND level <= 8),
+  level smallint PRIMARY KEY CHECK (level >= 1),
   title varchar(128) NOT NULL,
   description text NOT NULL,
   created_by uuid REFERENCES users(id) ON DELETE SET NULL,
