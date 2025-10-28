@@ -5,6 +5,7 @@ import RegisterForm from './pages/Auth/RegisterForm';
 import PlayPage from './pages/PlayPage';
 import ProfileView from './pages/Profile/ProfileView';
 import { useAuth } from './contexts/AuthContext';
+import TasksView from './pages/Tasks/TasksView';
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -16,6 +17,14 @@ const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) 
 const App: React.FC = () => {
   return (
     <Routes>
+      <Route
+        path="/tasks"
+        element={
+          <PrivateRoute>
+            <TasksView />
+          </PrivateRoute>
+        }
+      />
       <Route path="/login" element={<LoginForm />} />
       <Route path="/register" element={<RegisterForm />} />
       <Route

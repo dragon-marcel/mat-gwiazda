@@ -12,6 +12,7 @@ const Header: React.FC = () => {
   const location = useLocation();
   const isPlayActive = location.pathname.startsWith('/play') || location.pathname === '/';
   const isProfileActive = location.pathname.startsWith('/profile');
+  const isTasksActive = location.pathname.startsWith('/tasks');
 
   return (
     <header className="flex items-center justify-between mb-6">
@@ -34,6 +35,15 @@ const Header: React.FC = () => {
           className={isPlayActive ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 font-semibold' : undefined}
         >
           Graj
+        </Button>
+
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => navigate('/tasks')}
+          className={isTasksActive ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 font-semibold' : undefined}
+        >
+          Zadania
         </Button>
 
         <Button

@@ -22,6 +22,7 @@ export type UserDto = {
   currentLevel?: number;
   points?: number;
   stars?: number;
+  role?: string; // optional role (e.g. 'ADMIN', 'STUDENT') provided by backend
 };
 
 // Task / Play related types used by frontend

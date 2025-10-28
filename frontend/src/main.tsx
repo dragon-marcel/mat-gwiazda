@@ -6,6 +6,9 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
@@ -15,7 +18,9 @@ if (rootEl) {
       <BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
-            <App />
+            <QueryClientProvider client={queryClient}>
+              <App />
+            </QueryClientProvider>
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>
