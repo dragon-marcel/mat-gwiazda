@@ -205,6 +205,57 @@ CREATE TABLE progress (
   updated_at timestamptz NOT NULL DEFAULT now(),
 
   updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+## 6a. `learning_levels` — opis kompetencji / zakresu dla poziomów 1..8
+
+Aby w przejrzysty sposób przechowywać opis zakresu materiału i reguły generowania zadań dla poszczególnych poziomów, dodajemy tabelę `learning_levels`. Pozwala to na łatwe rozszerzanie i edytowanie opisów poziomów z audytem kto i kiedy wprowadził zmianę.
+
+CREATE TABLE (opis):
+- level: smallint PRIMARY KEY CHECK (level >= 1 AND level <= 8) -- numer poziomu
+- title: varchar(128) NOT NULL -- krótka nazwa poziomu (opcjonalnie)
+- description: text NOT NULL -- szczegółowy opis zakresu (użyj poniższych tekstów)
+- created_by: uuid REFERENCES users(id) ON DELETE SET NULL -- kto utworzył wpis
+- created_at: timestamptz NOT NULL DEFAULT now() -- kiedy utworzono
+- modified_by: uuid REFERENCES users(id) ON DELETE SET NULL -- kto ostatnio modyfikował
+- modified_at: timestamptz -- kiedy ostatnio zmodyfikowano
+
+Przykładowa definicja SQL do migracji:
+
+-- learning_levels
+CREATE TABLE learning_levels (
+  level smallint PRIMARY KEY CHECK (level >= 1 AND level <= 8),
+  title varchar(128) NOT NULL,
+  description text NOT NULL,
+  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  modified_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  modified_at timestamptz
+);
+
+-- Opcjonalnie: powiązać `tasks.level` jako FK do `learning_levels(level)` zamiast surowego CHECK na zakres
+-- ALTER TABLE tasks ADD CONSTRAINT fk_tasks_level_learning_levels FOREIGN KEY (level) REFERENCES learning_levels(level);
+
+-- Seed / przykładowe wpisy dla poziomów 1..8 (użyj w migracji lub skrypcie seedującym):
+INSERT INTO learning_levels (level, title, description) VALUES
+  (1, 'Poziom 1', 'Dodawanie i odejmowanie w zakresie 100, porównywanie liczb, proste zadania tekstowe.'),
+  (2, 'Poziom 2', 'Mnożenie i dzielenie w zakresie 100, proste ułamki.'),
+  (3, 'Poziom 3', 'Działania do 1000, tabliczka mnożenia, dzielenie z resztą, ułamki zwykłe, jednostki miary (długość, masa, czas).'),
+  (4, 'Poziom 4', 'Liczby wielocyfrowe, ułamki i ich porównywanie.'),
+  (5, 'Poziom 5', 'Ułamki dziesiętne, procenty, wyrażenia algebraiczne.'),
+  (6, 'Poziom 6', 'Działania na ułamkach, proporcje, średnia arytmetyczna.'),
+  (7, 'Poziom 7', 'Potęgi i pierwiastki, równania i nierówności, obliczenia procentowe.'),
+  (8, 'Poziom 8', 'Funkcje liniowe, układy równań, twierdzenie Pitagorasa, statystyka i prawdopodobieństwo.');
+
+Notatki do implementacji:
+- `description` powinno być tekstem sformatowanym (markdown / HTML) jeśli planujesz je wyświetlać w panelu administracyjnym.
+- `created_by`/`modified_by` zakładają istnienie konta użytkownika (np. admin) — migracja seedująca może ustawić `created_by` NULL lub wskazać konto systemowe.
+- Jeżeli chcesz później umożliwić wersjonowanie opisów poziomów, można dodać tabelę `learning_levels_history` z pełnym śladem zmian.
+
+---
+
+(Umieszczono powyżej jako uzupełnienie do sekcji CREATE TABLE i mapy konceptualnej; zadbaj o dodanie migracji SQL do repozytorium migracji, np. Flyway/Liquibase, aby zapewnić spójność środowisk.)
+
 ## 7. Dodatkowe uwagi i decyzje projektowe
 
 1. Stosowanie JSONB w `tasks.options` i `tasks.metadata` daje elastyczność dla generowanych przez AI treści (np. warianty tłumaczeń, formaty renderowania). Jeśli wymagana będzie silna normalizacja raportów (np. agregowanie po treści opcji), można wprowadzić tabelę `task_options` z FK do `tasks`.
