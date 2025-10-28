@@ -10,6 +10,7 @@ type AuthContextType = {
   register: (creds: AuthRegisterCommand) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   updateUserFromProgress: (resp: ProgressSubmitResponseDto) => void;
 };
 
@@ -31,6 +32,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.debug('AuthContext.fetchUserRaw: success', res?.data);
     setUser(res.data);
     if (res.data?.id) localStorage.setItem('userId', res.data.id);
+  };
+
+  // Public helper to allow other components to refresh the user data
+  const refreshUser = async () => {
+    try {
+      await fetchUserRaw();
+    } catch (e) {
+      // pass through error handling already present in fetchUser
+      await fetchUser();
+    }
   };
 
   const fetchUser = async () => {
@@ -179,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, register, logout, refresh, updateUserFromProgress }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, register, logout, refresh, refreshUser, updateUserFromProgress }}>
       {children}
     </AuthContext.Provider>
   );
