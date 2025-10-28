@@ -284,6 +284,31 @@ Tasks in DB are treated as per-attempt instances created by AI or admin. For the
 - Description: Admin-only user listing and bulk operations.
 - Security note: JWT Bearer security required, role `ADMIN`
 
+2) GET /api/v1/admin/learning-levels
+- Description: Get list of all levels (1..8).
+- Response: 200 OK — array of LearningLevelDto.
+- Security note: JWT Bearer security required, role `ADMIN`
+
+3) GET /api/v1/admin/learning-levels/{level}
+- Description: Get single level by number (short).
+- Response: 200 OK + LearningLevelDto or 404 Not Found.
+- Security note: JWT Bearer security required, role `ADMIN`
+
+4) POST /api/v1/admin/learning-levels
+- Description: Create new learning_levels entry. Body: CreateLearningLevelCommand (level, title, description).
+- Responses: 201 Created + Location /api/v1/admin/learning-levels/{level} + body LearningLevelDto, 409 Conflict, 400 Bad Request.
+- Security note: JWT Bearer security required, role `ADMIN`
+
+5) PUT /api/v1/admin/learning-levels/{level}
+- Description: Update existing level. Body: UpdateLearningLevelCommand (optional: title, description).
+- Responses: 200 OK + updated LearningLevelDto, 404 Not Found, 400 Bad Request.
+- Security note: JWT Bearer security required, role `ADMIN`
+
+6) DELETE /api/v1/admin/learning-levels/{level}
+- Description: Delete existing level.
+- Responses: 204 No Content, 404 Not Found.
+- Security note: JWT Bearer security required, role `ADMIN`
+
 
 ## 3. Authentication & Authorization
 - Mechanism: JWT access tokens issued from Spring Security (OAuth2 / JWT). Use refresh tokens for long-lived sessions.
