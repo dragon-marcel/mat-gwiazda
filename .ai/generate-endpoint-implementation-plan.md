@@ -16,16 +16,17 @@ Table of contents
   - POST /api/v1/tasks
   - POST /api/v1/tasks/generate
   - GET /api/v1/tasks/{taskId}
-  - PATCH /api/v1/tasks/{taskId}
   - GET /api/v1/tasks
 - Progress
   - POST /api/v1/progress/submit
-  - GET /api/v1/progress
-  - GET /api/v1/progress/{id}
+  - GET /api/v1/progress/all
 - Admin
   - GET /api/v1/admin/users
-  - POST /api/v1/admin/tasks
-  - DELETE /api/v1/admin/tasks/{id}
+  - GET /api/v1/admin/learning-levels
+  - GET /api/v1/admin/learning-levels/{level}
+  - POST /api/v1/admin/learning-levels
+  - PUT /api/v1/admin/learning-levels/{level}
+  - DELETE /api/v1/admin/learning-levels/{level}
 - Cross-cutting: validation, security, rate limiting, RLS, logging, testing
 - Implementation roadmap and priorities
 
@@ -304,29 +305,6 @@ GET /api/v1/tasks/{taskId}
 5. Implementation steps
 - Implement ownership check and tests (owner/admin/forbidden).
 
-PATCH /api/v1/tasks/{taskId}
-
-1. Overview
-- Partial update of task metadata (admin or creator). Use `TaskPatchCommand` (explanation, isActive).
-
-2. Request details
-- Method: PATCH
-- URL: /api/v1/tasks/{taskId}
-- Auth: admin or creator
-- Body DTO: `TaskPatchCommand`
-
-3. Responses
-- 200 OK: updated `TaskDto`
-- 400 Bad Request: invalid fields
-- 403 Forbidden: no permission
-- 404 Not Found
-
-4. Data flow
-- Controller -> `TaskService.patchTask(taskId, cmd, actingUserId)`. Service validates rights and applies non-null fields.
-
-5. Implementation steps
-- Implement partial update and tests.
-
 GET /api/v1/tasks (list)
 
 1. Overview
@@ -386,41 +364,19 @@ POST /api/v1/progress/submit
 6. Implementation steps
 - Implement `ProgressService` with transactionality and concurrency-safe user updates. Add tests simulating concurrent submissions.
 
-GET /api/v1/progress
+GET /api/v1/progress/all
 
 1. Overview
-- Paginated list of user's progress attempts. Filters: isCorrect, date range.
-
+- Not paginated; returns all progress records for the authenticated user (filtered by userId).
 2. Request details
 - Method: GET
-- URL: /api/v1/progress
-- Query params: page, size, isCorrect, from, to
+- URL: /api/v1/progress/all
 
 3. Response
-- 200 OK: `PagedResponse<ProgressDto>`
+- 200 OK: `List<ProgressDto>`
 
 4. Implementation steps
 - Implement repository queries and controller endpoints.
-
-GET /api/v1/progress/{id}
-
-1. Overview
-- Retrieve a single progress attempt. Accessible to the attempt owner or admin.
-
-2. Request details
-- Method: GET
-- URL: /api/v1/progress/{id}
-- Auth: Bearer
-
-3. Response
-- 200 OK: `ProgressDto`
-- 403 Forbidden: not owner nor admin
-- 404 Not Found
-
-4. Implementation steps
-- Implement ownership checks and tests.
-
----
 
 ADMIN
 
@@ -441,41 +397,95 @@ GET /api/v1/admin/users
 4. Implementation steps
 - Admin controller + service + pageable queries.
 
-POST /api/v1/admin/tasks
+GET /api/v1/admin/learning-levels
 
 1. Overview
-- Admin creates curated task templates; functionally same as POST /api/v1/tasks but scoped to admin and possibly stored in a templates collection.
+- Get list of all levels (1..8).
+
+2. Request details
+- Method: GET
+- URL: /api/v1/admin/learning-levels
+- Auth: JWT Bearer
+
+3. Response
+- 200 OK: array of `LearningLevelDto`
+
+4. Security notes
+- JWT Bearer security required, role `ADMIN`.
+
+GET /api/v1/admin/learning-levels/{level}
+
+1. Overview
+- Get single level by number (short).
+
+2. Request details
+- Method: GET
+- URL: /api/v1/admin/learning-levels/{level}
+- Auth: JWT Bearer
+- Path param: `level` (short) — required (1..8).
+
+3. Response
+- 200 OK + `LearningLevelDto` or 404 Not Found.
+
+4. Security notes
+- JWT Bearer security required, role `ADMIN`.
+
+POST /api/v1/admin/learning-levels
+
+1. Overview
+- Create new `learning_levels` entry.
 
 2. Request details
 - Method: POST
-- URL: /api/v1/admin/tasks
-- Auth: admin
-- Body DTO: `TaskCreateCommand`
+- URL: /api/v1/admin/learning-levels
+- Auth: JWT Bearer
+- Body DTO: `CreateLearningLevelCommand` (level, title, description)
 
-3. Response
-- 201 Created: `TaskDto`
+3. Responses
+- 201 Created + Location `/api/v1/admin/learning-levels/{level}` and body `LearningLevelDto`.
+- 409 Conflict — if level already exists.
+- 400 Bad Request — validation errors.
 
-4. Implementation steps
-- Reuse `TaskService.createTask`, ensure admin auditing.
+4. Security notes
+- JWT Bearer security required, role `ADMIN`.
 
-DELETE /api/v1/admin/tasks/{id}
+PUT /api/v1/admin/learning-levels/{level}
 
 1. Overview
-- Admin deactivates or soft-deletes a curated task (prefer isActive=false).
+- Update existing level.
+
+2. Request details
+- Method: PUT
+- URL: /api/v1/admin/learning-levels/{level}
+- Auth: JWT Bearer
+- Path param: `level` (short) — target level to update.
+- Body DTO: `UpdateLearningLevelCommand` (optional: title, description)
+
+3. Responses
+- 200 OK + updated `LearningLevelDto`.
+- 404 Not Found — if level not present.
+- 400 Bad Request — validation errors.
+
+4. Security notes
+- JWT Bearer security required, role `ADMIN`.
+
+DELETE /api/v1/admin/learning-levels/{level}
+
+1. Overview
+- Delete existing level.
 
 2. Request details
 - Method: DELETE
-- URL: /api/v1/admin/tasks/{id}
-- Auth: admin
+- URL: /api/v1/admin/learning-levels/{level}
+- Auth: JWT Bearer
+- Path param: `level` (short) — target level to delete.
 
 3. Responses
-- 204 No Content: success
-- 404 Not Found
+- 204 No Content — deleted.
+- 404 Not Found — if level not present.
 
-4. Implementation steps
-- Implement `TaskService.deactivateTask` with admin checks.
-
----
+4. Security notes
+- JWT Bearer security required, role `ADMIN`.
 
 CROSS-CUTTING CONCERNS
 
