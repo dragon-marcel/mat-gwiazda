@@ -23,11 +23,11 @@ CREATE TABLE (opis):
 - created_at: timestamptz NOT NULL DEFAULT now()
 - updated_at: timestamptz NOT NULL DEFAULT now()
 - last_active_at: timestamptz
+- active_progress_id: uuid NULL -- reference to currently assigned progress (nullable)
 
 Notatki:
 - `points` i `stars` są przechowywane tutaj dla szybkiego odczytu profilu użytkownika.
-- Większe operacje akumulacji punktów będą zapisywane również w tabeli `progress` (historycznie).
-
+- `active_progress_id` wskazuje aktualną przypisaną użytkownikowi próbę (rekord `progress`). Dzięki temu frontend może po odświeżeniu strony pobrać i kontynuować tę próbę. Kolumna jest nullable i ustawiana na NULL po finalizacji progress.
 
 ### 1.2. `tasks` — repozytorium zadań (treść zadania, opcje, poprawna odpowiedź, wyjaśnienie)
 
@@ -47,8 +47,7 @@ CREATE TABLE (opis):
 Notatki:
 - `options` jako JSONB daje elastyczność (np. lokalizacje, dodatkowe atrybuty przy opcjach). Jeśli preferowane jest pełne normalizowanie, można zamiast tego wprowadzić tabelę `task_options` z FK do `tasks`.
 - Zakładamy 4 opcje na zadanie (zgodnie z PRD). Aplikacja powinna walidować długość tablicy `options` i zakres `correct_option_index`.
-- W modelu MVP zadania będą generowane dynamicznie dla każdej próby użytkownika i nie będą powtarzane. Dlatego każde wygenerowane `tasks` jest powiązane z dokładnie jednym wpisem w `progress` (relacja 1:1).
-
+- W modelu MVP każde wygenerowane zadanie jest instancją powiązaną z jednym rekordem `progress`. Przy generowaniu zadania backend tworzy zarówno `tasks` jak i odpowiadający `progress`, dzięki czemu historia prób od początku istnienia instancji jest zachowana.
 
 ### 1.3. `progress` — historia prób/rozwiązań użytkowników (główna tabela analityczna)
 
@@ -56,14 +55,18 @@ CREATE TABLE (opis):
 - id: uuid PRIMARY KEY DEFAULT gen_random_uuid()
 - user_id: uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 - task_id: uuid NOT NULL REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE  -- each task instance is unique per attempt
-- selected_option_index: smallint -- indeks wybranej opcji (NULL jeśli użytkownik przerwał)
-- is_correct: boolean NOT NULL
-- points_awarded: integer NOT NULL DEFAULT 0 CHECK (points_awarded >= 0)
-- time_taken_ms: integer -- czas w ms spędzony na zadaniu
+- attempt_number integer NOT NULL DEFAULT 1
+- selected_option_index smallint,
+- is_correct boolean NOT NULL DEFAULT false,
+- points_awarded integer NOT NULL DEFAULT 0 CHECK (points_awarded >= 0)
+- time_taken_ms integer -- czas w ms spędzony na zadaniu
+- finalized boolean NOT NULL DEFAULT false -- czy próba została zakończona/submitted
+- created_at: timestamptz NOT NULL DEFAULT now()
 - updated_at: timestamptz NOT NULL DEFAULT now()
 
 Notatki:
-- `progress` łączy `users` z `tasks`, ale w tej wersji relacja `tasks` -> `progress` jest jeden-do-jednego (1 task instance = 1 progress record). Aby wymusić to zachowanie, dodajemy unikalne ograniczenie na `progress.task_id`.
+- `progress` łączy `users` z `tasks`. W tym modelu każde wygenerowane `task` ma odpowiadający rekord `progress` utworzony w momencie generowania (status assigned).
+- Aby wymusić relację 1:1 (task -> progress) dodajemy unikatowe ograniczenie na `progress.task_id`.
 - FK z `ON DELETE CASCADE` zgodnie z decyzją sesji planowania: usunięcie użytkownika usuwa powiązane rekordy historyczne; usunięcie instancji zadania usuwa powiązany wpis w `progress`.
 
 
@@ -72,15 +75,13 @@ Notatki:
 - users 1 --- * progress
   - Jeden użytkownik może mieć wiele wpisów w `progress` (wiele prób / wygenerowanych zadań dla jednego użytkownika).
 - tasks 1 --- 1 progress
-  - Każde wygenerowane zadanie jest unikalne i powiązane z dokładnie jednym wpisem `progress` (zadania są generowane per-attempt).
+  - Każde wygenerowane zadanie jest unikalną instancją powiązaną z dokładnie jednym wpisem `progress` (zadania są generowane per-attempt). Zgodnie z flow generowania, backend tworzy task + progress jednocześnie i przypisuje `progress.id` do `users.active_progress_id`.
 
 Kardynalność: relacja `users` <-> `tasks` nie jest modelowana jako tradycyjne wiele-do-wielu; zamiast tego `progress` przechowuje próby użytkownika, a każde `task` jest jednorazową instancją powiązaną 1:1 z `progress`.
 
 ---
 
 ## 3. Indeksy (zalecane)
-
-Tworzenie indeksów do szybkiego wyszukiwania i agregacji:
 
 - UNIQUE INDEX na `users(email)` (już wymieniony jako UNIQUE constraint).
 
@@ -94,12 +95,11 @@ Tworzenie indeksów do szybkiego wyszukiwania i agregacji:
   - CREATE INDEX idx_tasks_level_active ON tasks (level, is_active);
   - CREATE INDEX idx_tasks_created_by ON tasks (created_by);
   - CREATE INDEX idx_tasks_metadata_gin ON tasks USING GIN (metadata);
-  - (opcjonalnie) CREATE INDEX idx_tasks_options_gin ON tasks USING GIN (options jsonb_path_ops);
-    - Uwaga: używaj GIN dla wyszukiwań w JSONB; jsonb_path_ops jest szybszy dla niektórych operacji (ale ograniczony).
 
 - Indexy na `users`:
   - CREATE INDEX idx_users_current_level ON users (current_level);
   - CREATE INDEX idx_users_last_active_at ON users (last_active_at DESC);
+  - CREATE INDEX idx_users_active_progress_id ON users (active_progress_id);
 
 Wskazówki:
 - Indeksy kompozytowe (np. user_id + created_at) przyspieszają odczyt historii użytkownika i budowanie dashboardów.
@@ -174,7 +174,8 @@ CREATE TABLE users (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  last_active_at timestamptz
+  last_active_at timestamptz,
+  active_progress_id uuid NULL
 );
 
 -- tasks
@@ -197,15 +198,21 @@ CREATE TABLE progress (
   task_id uuid NOT NULL REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE,
   attempt_number integer NOT NULL DEFAULT 1,
   selected_option_index smallint,
-  level_updated boolean NOT NULL DEFAULT false,
-  is_correct boolean NOT NULL,
+  is_correct boolean NOT NULL DEFAULT false,
   points_awarded integer NOT NULL DEFAULT 0 CHECK (points_awarded >= 0),
+  time_taken_ms integer,
+  finalized boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
-  selected_option_index smallint NOT NULL CHECK (selected_option_index >= 0 AND selected_option_index < 4),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Unikalne ograniczenie: każdemu taskowi odpowiada jeden progress (1:1)
+ALTER TABLE progress ADD CONSTRAINT uq_progress_task UNIQUE (task_id);
+
+-- Indexy pomocnicze
+CREATE INDEX idx_progress_user_id ON progress (user_id);
+CREATE INDEX idx_tasks_level_active ON tasks (level, is_active);
+CREATE INDEX idx_users_active_progress_id ON users (active_progress_id);
 
 ## 6a. `learning_levels` — opis kompetencji / zakresu dla poziomów 1..8
 
@@ -267,8 +274,7 @@ Notatki do implementacji:
    - procent poprawnych odpowiedzi.
 
 3. Aktualizacja `users.points` i `users.stars`:
-   - Można je utrzymywać w czasie rzeczywistym (transakcja aktualizująca `users` + insert do `progress`) — MVP nie wymaga skomplikowanych transakcyjnych blokad.
-   - Alternatywnie, prowadzić batchowe przeliczanie punktów z `progress` (cron) w przypadku skalowania dużej liczby użytkowników.
+   - Operacje aktualizacji punktów i finalizacji progress powinny działać w transakcjach: submit progress (ustawienie finalized=true i points_awarded) oraz aktualizacja users (points/stars/current_level oraz ustawienie users.active_progress_id = NULL) powinny być wykonane atomowo.
 
 4. Polityki RLS muszą być zsynchronizowane z mechanizmem uwierzytelniania (Supabase lub JWT używany przez Spring Boot). W Supabase rekomenduje się użycie `auth.uid()` w politykach zamiast `current_setting`.
 
@@ -282,13 +288,10 @@ Notatki do implementacji:
 
 - Rejestracja i logowanie: `users` (email, password) — DONE
 - Generowanie zadań przez AI: `tasks` (prompt, options, correct_option_index, explanation, metadata) — DONE (z opcją oznaczenia źródła AI w `metadata`)
-- System punktów i gwiazdek: `progress` zapisuje punkty_awarded; `users.points` i `users.stars` przechowują bieżący stan — DONE
+- System punktów i gwiazdek: `progress` zapisuje points_awarded; `users.points` i `users.stars` przechowują bieżący stan — DONE
 - Śledzenie ukończonych zadań i czasu: `progress.time_taken_ms`, `created_at` — DONE
 - RLS: przykładowe polityki i wskazówki (Supabase/Spring Boot) — DONE
 
 ---
 
-Plik ten jest gotowy do użycia jako baza do tworzenia migracji SQL lub migracji w narzędziu takim jak Flyway / Liquibase. Zalecane kroki następcze:
-- Doprecyzować mapowanie ról i integrację JWT (Supabase) z politykami RLS.
-- Zaimplementować migracje SQL z powyższych CREATE TABLE i CREATE TYPE.
-- Dodać testy migracji i krótkie skrypty smoke-test (np. insert/select, sprawdzenie RLS).
+Zaktualizowano: flow generowania zadań tworzy teraz `task` + `progress` i przypisuje `progress.id` do `users.active_progress_id`.

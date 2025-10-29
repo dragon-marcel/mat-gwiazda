@@ -5,12 +5,12 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 /**
- * Command to submit an answer for a task.
- * Maps to Progress.task (taskId), Progress.selectedOptionIndex and timeTakenMs.
+ * Command to submit an answer for a previously assigned progress record.
+ * The client receives a `progressId` when generating a task and must submit against it.
  */
 public class ProgressSubmitCommand {
-    @NotNull(message = "taskId is required")
-    private UUID taskId;
+    @NotNull(message = "progressId is required")
+    private UUID progressId;
 
     @NotNull(message = "selectedOptionIndex is required")
     private Short selectedOptionIndex;
@@ -20,18 +20,18 @@ public class ProgressSubmitCommand {
     public ProgressSubmitCommand() {
     }
 
-    public ProgressSubmitCommand(UUID taskId, Short selectedOptionIndex, Integer timeTakenMs) {
-        this.taskId = taskId;
+    public ProgressSubmitCommand(UUID progressId, Short selectedOptionIndex, Integer timeTakenMs) {
+        this.progressId = progressId;
         this.selectedOptionIndex = selectedOptionIndex;
         this.timeTakenMs = timeTakenMs;
     }
 
-    public UUID getTaskId() {
-        return taskId;
+    public UUID getProgressId() {
+        return progressId;
     }
 
-    public void setTaskId(UUID taskId) {
-        this.taskId = taskId;
+    public void setProgressId(UUID progressId) {
+        this.progressId = progressId;
     }
 
     public Short getSelectedOptionIndex() {

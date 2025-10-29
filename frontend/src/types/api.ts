@@ -30,15 +30,16 @@ export type UserDto = {
 // Task / Play related types used by frontend
 export type TaskDto = {
   id: string;
-  title: string;
-  description?: string;
-  question: string; // question text (could include simple markup)
-  options?: string[]; // optional multiple-choice options
-  // if options is present, correctOptionIndex may be set on backend (frontend won't rely on it)
-  difficulty?: 'easy' | 'medium' | 'hard';
-  points: number; // points awarded for correct answer
-  timeLimitSeconds?: number; // optional time limit for the task
-  hints?: string[];
+  // text shown to the user
+  prompt: string;
+  // multiple-choice options (if present)
+  options?: string[];
+  // authoritative correct index when backend exposes it (may be omitted)
+  correctOptionIndex?: number | null;
+  // optional explanation text
+  explanation?: string | null;
+  // level/difficulty used by generator
+  level?: number;
 };
 
 export type TaskListDto = TaskDto[];
@@ -59,7 +60,8 @@ export type AnswerResultDto = {
 
 // Progress-related types mirror backend DTOs (ProgressSubmitCommand / ProgressSubmitResponseDto)
 export type ProgressSubmitCommand = {
-  taskId: string;
+  // Progress submit should reference the server-side Progress entity created when generating a task
+  progressId: string;
   selectedOptionIndex: number;
   timeTakenMs?: number;
 };
@@ -73,6 +75,12 @@ export type ProgressSubmitResponseDto = {
   leveledUp: boolean;
   newLevel?: number;
   explanation?: string | null;
+};
+
+// Response for generate task endpoint which also returns a progress id
+export type TaskWithProgressDto = {
+  task: TaskDto;
+  progressId: string;
 };
 
 // Learning levels types — mirror backend migration and DTOs

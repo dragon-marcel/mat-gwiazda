@@ -57,6 +57,9 @@ public class User {
     @Column(name = "last_active_at")
     private Instant lastActiveAt;
 
+    @Column(name = "active_progress_id", columnDefinition = "uuid")
+    private UUID activeProgressId;
+
     public User() {
     }
 
@@ -108,4 +111,7 @@ public class User {
 
     public Instant getLastActiveAt() { return lastActiveAt; }
     public void setLastActiveAt(Instant lastActiveAt) { this.lastActiveAt = lastActiveAt; }
+
+    public UUID getActiveProgressId() { return activeProgressId; }
+    public void setActiveProgressId(UUID activeProgressId) { this.activeProgressId = activeProgressId; }
 }

@@ -25,10 +25,23 @@ Aplikacja wykorzystuje algorytm AI do generowania zadań matematycznych, dostoso
 - Wyświetlanie postępów użytkownika w czasie rzeczywistym, w tym liczba zdobytych punktów, gwiazdek.
 - Zbieranie danych dotyczących ukończonych zadań, zdobytych punktów oraz czasu spędzonego w aplikacji.
 
+### Zmiana w flow (aktualizacja)
+W tej wersji flow operacyjny został ujednolicony tak, aby zachować spójność pomiędzy endpointem generowania zadania i jego późniejszym zatwierdzeniem (submit). Kluczowe decyzje:
+- Endpoint generujący zadanie (`POST /api/v1/tasks/generate`) tworzy w tej samej transakcji:
+  - rekord w tabeli `tasks` (treść zadania, opcje, poprawna odpowiedź ukryta dla klienta),
+  - rekord w tabeli `progress` odpowiadający tej instancji zadania, z flagą `finalized = false` (status assigned),
+  - aktualizuje `users.active_progress_id` = nowo utworzony `progress.id` — w ten sposób backend pamięta aktualnie przypisaną użytkownikowi próbę nawet przy odświeżeniu strony.
+- Endpoint zatwierdzający odpowiedź (`POST /api/v1/progress/submit`) przyjmuje `progressId` oraz `selectedOptionIndex`, weryfikuje użytkownika, ocenia odpowiedź porównując z poprawną opcją po stronie serwera, aktualizuje rekord `progress` (selected_option_index, is_correct, points_awarded, finalized = true, time_taken_ms) oraz w tej samej transakcji aktualizuje profil użytkownika (punkty/gwiazdy/level) i czyści `users.active_progress_id` (= NULL) po zakończeniu próby.
+
+Dlaczego tak?
+- Zachowujemy historię próby (`progress`) od momentu wygenerowania zadania — to ułatwia analizę porzuceń, czasu pomiędzy przydziałem a rozwiązaniem, oraz debugging.
+- Przypisanie `active_progress_id` do użytkownika umożliwia prosty mechanizm przywrócenia aktualnej próby na frontendzie po odświeżeniu.
+- Transakcyjne tworzenie `task + progress + update user` lub `progress submit + update user` zapobiega race conditions i utracie spójności danych.
+
 ## 4. Granice produktu
 - Brak zaawansowanych raportów oraz analityki wyników.
 - Brak integracji z platformami szkolnymi oraz e-dziennikami.
-- Niezapewnienie możliwości tworzenia własnych zadań przez nauczyciela.
+- Brak możliwości tworzenia własnych zadań przez nauczyciela w MVP.
 - Aplikacja dostępna wyłącznie w wersji webowej; aplikacja mobilna nie wchodzi w zakres MVP.
 - Implementacja trybu wieloosobowego i rywalizacji między uczniami może być rozważona w kolejnych wersjach, ale nie jest priorytetem w MVP.
 
@@ -43,7 +56,7 @@ Aplikacja wykorzystuje algorytm AI do generowania zadań matematycznych, dostoso
 
 ### US-002
 - Tytuł: Automatyczne generowanie zadań matematycznych
-- Opis: System powinien na podstawie poziomu użytkownika generować zadania matematyczne z czterema odpowiedziami, w tym jedną poprawną.
+- Opis: System powinien na podstawie poziomu użytkownika generować zadania matematyczne z czterema odpowiedziami, w tym jedną poprawną. Generowanie tworzy także record `progress` przypisany do użytkownika, aby przy odświeżeniu frontendu móc przywrócić bieżącą próbę.
 - Kryteria akceptacji:
     - Algorytm AI generuje zadania dostosowane do określonego poziomu.
     - Każde zadanie zawiera cztery opcje odpowiedzi oraz krótkie wyjaśnienie.
@@ -63,6 +76,7 @@ Aplikacja wykorzystuje algorytm AI do generowania zadań matematycznych, dostoso
     - Użytkownik otrzymuje natychmiastową informację zwrotną po wybraniu odpowiedzi.
     - W przypadku błędnej odpowiedzi, użytkownik otrzymuje dodatkowe wyjaśnienie dotyczące zadania.
     - System zapisuje dane o ukończonych zadaniach oraz czasie trwania sesji.
+    - W przypadku porzucenia zadania (np. użytkownik zamyka kartę bez submita) rekord `progress` pozostaje w historii i można raportować porzucone próby.
 
 ### US-005
 - Tytuł: Przegląd postępów użytkownika
@@ -77,3 +91,8 @@ Aplikacja wykorzystuje algorytm AI do generowania zadań matematycznych, dostoso
 - Średni czas spędzony w aplikacji przez dziecko wynosi minimum 10 minut dziennie.
 - Co najmniej 70% użytkowników odwiedza aplikację minimum 3 razy w tygodniu.
 - Co najmniej 60% użytkowników osiąga kolejny poziom poprzez zdobycie 50 punktów.
+
+
+---
+
+Dokument zaktualizowany: flow generowania zadań tworzy teraz również rekord `progress` i przypisuje go do użytkownika (users.active_progress_id). Następne kroki: przygotować migrację SQL, zaktualizować `db-plan.md`, a następnie zaimplementować backend i frontend zgodnie z kontraktami API powyżej.

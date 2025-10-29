@@ -16,7 +16,15 @@ const TasksView: React.FC = () => {
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  const params = useMemo(() => ({ page, size, ...filters, ...(user?.id ? { createdById: user.id } : {}) }), [page, size, filters, user?.id]);
+  // Default params: show only inactive tasks in this view (isActive: false),
+  // allow `filters` to override `isActive` when explicitly provided.
+  const params = useMemo(() => ({
+    page,
+    size,
+    ...(user?.id ? { createdById: user.id } : {}),
+    isActive: false,
+    ...filters,
+  }), [page, size, filters, user?.id]);
 
   const { data, isLoading, error } = useTasksQuery(params);
   const taskQuery = useTaskQuery(selectedTaskId);

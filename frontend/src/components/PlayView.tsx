@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getTask, submitProgress, generateTask } from '../lib/services/playService';
-import type { TaskDto, ProgressSubmitResponseDto } from '../types/api';
+import type { TaskDto, ProgressSubmitResponseDto, TaskWithProgressDto } from '../types/api';
 import { Button } from './ui/Button';
 import ErrorBanner from './ui/ErrorBanner';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,7 @@ import OptionRow from './OptionRow';
 import Stars from './ui/Stars';
 
 // TaskPlayer: displays a single task, handles selection and submit, shows feedback.
-const TaskPlayer: React.FC<{ task: TaskDto | null; userId?: string; onNext?: (result: ProgressSubmitResponseDto) => void; onResult?: (result: ProgressSubmitResponseDto) => void }> = ({ task, userId, onNext, onResult }) => {
+const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?: string; onNext?: (result: ProgressSubmitResponseDto) => void; onResult?: (result: ProgressSubmitResponseDto) => void }> = ({ task, progressId, userId, onNext, onResult }) => {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; userId?: string; onNext?: (re
     try {
       const timeTakenMs = startTimeRef.current ? Date.now() - startTimeRef.current : undefined;
       const payload = {
-        taskId: task.id,
+        progressId: progressId ?? task.id,
         selectedOptionIndex: selectedOption,
         timeTakenMs,
       };
@@ -162,7 +162,7 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; userId?: string; onNext?: (re
               if (onNext) onNext(result as ProgressSubmitResponseDto);
             }}
           >
-            Następne pytanie
+            Nowe zadanie
           </Button>
         </div>
       ) : (
@@ -186,6 +186,7 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; userId?: string; onNext?: (re
 // PlayView: container that generates tasks and shows TaskPlayer
 const PlayView: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<TaskDto | null>(null);
+  const [progressId, setProgressId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [feedbackVisible, setFeedbackVisible] = useState(false);
@@ -215,12 +216,13 @@ const PlayView: React.FC = () => {
         // debug log: generation reason
         // eslint-disable-next-line no-console
         console.debug('PlayView: generating initial task for user', { userId: user?.id, level: user?.currentLevel, selectedTaskExists: Boolean(selectedTask) });
-        const newTask = await generateTask(user?.currentLevel ?? 1, user?.id);
+        const generated = await generateTask(user?.currentLevel ?? 1, user?.id);
         if (!mounted) return;
         // debug before setting
         // eslint-disable-next-line no-console
-        console.debug('PlayView: setting selectedTask (initial)', newTask?.id ?? null);
-        setSelectedTask(newTask);
+        console.debug('PlayView: setting selectedTask (initial)', generated?.task?.id ?? null, 'progressId', generated?.progressId ?? null);
+        setSelectedTask(generated.task);
+        setProgressId(generated.progressId ?? null);
         initialGeneratedRef.current = true;
       } catch (e: any) {
         setError(e?.message ?? 'Nie można wygenerować zadania');
@@ -258,11 +260,12 @@ const PlayView: React.FC = () => {
     // generate next task
     try {
       setLoading(true);
-      const newTask = await generateTask(user?.currentLevel ?? 1, user?.id);
+      const generated = await generateTask(user?.currentLevel ?? 1, user?.id);
       // debug before setting
       // eslint-disable-next-line no-console
-      console.debug('PlayView: setting selectedTask (next)', newTask?.id ?? null);
-      setSelectedTask(newTask);
+      console.debug('PlayView: setting selectedTask (next)', generated?.task?.id ?? null, 'progressId', generated?.progressId ?? null);
+      setSelectedTask(generated.task);
+      setProgressId(generated.progressId ?? null);
     } catch (e: any) {
       console.error('Failed to generate new task after submit', e);
       setError(e?.message ?? 'Nie można wygenerować kolejnego zadania');
@@ -280,6 +283,7 @@ const PlayView: React.FC = () => {
         <div>
           <TaskPlayer
             task={selectedTask}
+            progressId={progressId ?? undefined}
             userId={user?.id}
             onNext={handleNext}
             onResult={(res) => {

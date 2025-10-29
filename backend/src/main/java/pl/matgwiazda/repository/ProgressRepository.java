@@ -1,7 +1,11 @@
 package pl.matgwiazda.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import pl.matgwiazda.domain.entity.Progress;
 
@@ -17,5 +21,10 @@ public interface ProgressRepository extends JpaRepository<Progress, UUID> {
 
     // Non-paged variants for endpoints that return all items
     List<Progress> findByUserId(UUID userId, Sort sort);
+
+    // Locked finder for update flows (uses SELECT ... FOR UPDATE / DB row lock)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Progress p where p.id = :id")
+    Optional<Progress> findByIdForUpdate(@Param("id") UUID id);
 
 }

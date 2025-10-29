@@ -40,6 +40,9 @@ public class Progress {
     @Column(name = "time_taken_ms")
     private Integer timeTakenMs;
 
+    @Column(name = "finalized", nullable = false)
+    private boolean finalized = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -133,6 +136,9 @@ public class Progress {
     public void setTimeTakenMs(Integer timeTakenMs) {
         this.timeTakenMs = timeTakenMs;
     }
+
+    public boolean isFinalized() { return finalized; }
+    public void setFinalized(boolean finalized) { this.finalized = finalized; }
 
     public Instant getCreatedAt() {
         return createdAt;

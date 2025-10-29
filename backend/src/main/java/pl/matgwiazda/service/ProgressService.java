@@ -3,10 +3,12 @@ package pl.matgwiazda.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import pl.matgwiazda.domain.entity.Progress;
 import pl.matgwiazda.domain.entity.Task;
@@ -19,7 +21,6 @@ import pl.matgwiazda.repository.TaskRepository;
 import pl.matgwiazda.repository.UserRepository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -28,14 +29,16 @@ public class ProgressService {
     private static final Logger log = LoggerFactory.getLogger(ProgressService.class);
 
     private final ProgressRepository progressRepository;
-    private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository;
+    private final TransactionTemplate txTemplate;
 
     @Autowired
-    public ProgressService(ProgressRepository progressRepository, TaskRepository taskRepository, UserRepository userRepository) {
+    public ProgressService(ProgressRepository progressRepository, UserRepository userRepository, TaskRepository taskRepository, PlatformTransactionManager txManager) {
         this.progressRepository = progressRepository;
-        this.taskRepository = taskRepository;
         this.userRepository = userRepository;
+        this.taskRepository = taskRepository;
+        this.txTemplate = new TransactionTemplate(txManager);
     }
     /**
      * List ALL progress attempts for a user (no pagination).
@@ -53,38 +56,83 @@ public class ProgressService {
      * Submit progress for a user attempting a task.
      * This method orchestrates smaller responsibilities and is transactional so any exception will rollback changes.
      */
-    @Transactional(rollbackFor = Exception.class)
+    // Public wrapper with retry logic using TransactionTemplate
     public ProgressSubmitResponseDto submitProgress(UUID userId, ProgressSubmitCommand cmd) {
+        final int maxAttempts = 3;
+        int attempt = 0;
+        while (true) {
+            attempt++;
+            try {
+                return txTemplate.execute(status -> performSubmitTx(userId, cmd));
+            } catch (ConcurrencyFailureException ex) {
+                if (attempt >= maxAttempts) throw ex;
+                sleepBackoff(attempt);
+            }
+        }
+    }
 
-        log.debug("submitProgress start: userId={}, taskId={}, selectedOptionIndex={}", userId, cmd.getTaskId(), cmd.getSelectedOptionIndex());
+    // Extracted transaction body to reduce cognitive complexity and improve readability
+    private ProgressSubmitResponseDto performSubmitTx(UUID userId, ProgressSubmitCommand cmd) {
+        log.debug("submitProgress (tx) start: userId={}, progressId={}, selectedOptionIndex={}", userId, cmd.getProgressId(), cmd.getSelectedOptionIndex());
 
-        User user = findUserOrThrow(userId);
-        Task task = findTaskOrThrow(cmd.getTaskId());
+        if (cmd.getProgressId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "progressId is required");
+        }
+
+        // Lock user first to ensure consistent lock ordering (user -> progress) and avoid deadlocks
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found"));
+
+        // Now load and lock progress row
+        Progress progress = progressRepository.findByIdForUpdate(cmd.getProgressId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Progress not found"));
+
+        // Validate ownership
+        if (progress.getUser() == null || !progress.getUser().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Progress does not belong to user");
+        }
+
+        if (progress.isFinalized()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Progress already submitted");
+        }
+
+        Task task = progress.getTask();
+        if (task == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Associated task not found");
+        }
 
         boolean isCorrect = determineCorrectness(cmd.getSelectedOptionIndex(), task.getCorrectOptionIndex());
         int pointsAwarded = isCorrect ? 1 : 0;
 
-        // Update user stats and persist. Now returns the number of levels gained (stars awarded).
         int levelsGained = updateUserStatsAndReturnLevelsGained(user, pointsAwarded);
         boolean levelUp = levelsGained > 0;
+        // Clear active progress for the user since this progress is finalized
+        user.setActiveProgressId(null);
         userRepository.save(user);
 
-        // Upsert progress
-        Progress savedProgress = upsertProgress(user, task, cmd, isCorrect, pointsAwarded, levelUp);
+        // Mark task inactive so it won't be re-generated/used again
+        Task taskToDeactivate = progress.getTask();
+        if (taskToDeactivate != null) {
+            taskToDeactivate.setActive(false);
+            taskRepository.save(taskToDeactivate);
+        }
+
+        // Update and finalize progress
+        progress.setSelectedOptionIndex(cmd.getSelectedOptionIndex());
+        progress.setCorrect(isCorrect);
+        progress.setPointsAwarded(pointsAwarded);
+        progress.setTimeTakenMs(cmd.getTimeTakenMs());
+        progress.setLevelUp(levelUp);
+        progress.setFinalized(true);
+        Progress savedProgress = progressRepository.save(progress);
 
         // Prepare and return response (include actual stars awarded count)
         ProgressSubmitResponseDto response = buildResponse(savedProgress, user, levelsGained);
-        log.info("submitProgress completed: userId={}, taskId={}, progressId={}, isCorrect={}", userId, cmd.getTaskId(), savedProgress.getId(), isCorrect);
+        log.info("submitProgress completed: userId={}, progressId={}, isCorrect={}", userId, savedProgress.getId(), isCorrect);
         return response;
     }
 
-    private User findUserOrThrow(UUID userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found"));
-    }
-
-    private Task findTaskOrThrow(UUID taskId) {
-        Optional<Task> taskOpt = taskRepository.findByIdAndIsActive(taskId, true);
-        return taskOpt.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found or not active"));
+    private void sleepBackoff(int attempt) {
+        try { Thread.sleep(50L * attempt); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
     }
 
     private boolean determineCorrectness(Short selectedOptionIndex, short correctIndex) {
@@ -104,24 +152,6 @@ public class ProgressService {
         user.setStars(user.getStars() + levelsGained);
         user.setCurrentLevel((short) (user.getCurrentLevel() + levelsGained));
         return levelsGained;
-    }
-
-    private Progress upsertProgress(User user, Task task, ProgressSubmitCommand cmd, boolean isCorrect, int pointsAwarded, boolean levelUp) {
-        // mark task active flag according to correctness (business rule contained here)
-        task.setActive(!isCorrect);
-
-        Optional<Progress> existing = progressRepository.findByUserIdAndTaskId(user.getId(), task.getId());
-        Progress progress = existing.orElseGet(Progress::new);
-        progress.setUser(user);
-        progress.setLevelUp(levelUp);
-        progress.setTask(task);
-        progress.setAttemptNumber(progress.getAttemptNumber() + 1);
-        progress.setSelectedOptionIndex(cmd.getSelectedOptionIndex());
-        progress.setCorrect(isCorrect);
-        progress.setPointsAwarded(pointsAwarded);
-        progress.setTimeTakenMs(cmd.getTimeTakenMs());
-
-        return progressRepository.save(progress);
     }
 
     private ProgressSubmitResponseDto buildResponse(Progress saved, User user, int starsAwarded) {

@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.matgwiazda.dto.TaskDto;
 import pl.matgwiazda.dto.TaskGenerateCommand;
+import pl.matgwiazda.dto.TaskWithProgressDto;
 import pl.matgwiazda.service.TaskService;
 
 import java.util.UUID;
@@ -26,11 +27,14 @@ public class TaskController {
     }
 
     /**
-     * Generate a task (persisted). Returns 201 Created with body.
+     * Generate a task (persisted). Returns 201 Created with body including the created progressId.
+     * Expects X-User-Id header identifying the user for whom the task is generated.
      */
     @PostMapping(path = "/generate", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<TaskDto> generateTask(@Valid @RequestBody(required = true) TaskGenerateCommand cmd) {
-        TaskDto generated = taskService.generateTask(cmd);
+    public ResponseEntity<TaskWithProgressDto> generateTask(
+            @RequestHeader(name = "X-User-Id", required = true) UUID userId,
+            @Valid @RequestBody(required = true) TaskGenerateCommand cmd) {
+        TaskWithProgressDto generated = taskService.generateTask(cmd, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(generated);
     }
 

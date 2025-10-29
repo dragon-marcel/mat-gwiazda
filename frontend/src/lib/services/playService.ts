@@ -1,6 +1,6 @@
 // filepath: c:\Users\drago\Desktop\szkolenie AI\mat-gwiazda\frontend\src\lib\services\playService.ts
 import api from '../../api/apiClient';
-import type { TaskListDto, TaskDto, ProgressSubmitCommand, ProgressSubmitResponseDto } from '../../types/api';
+import type { TaskListDto, TaskDto, ProgressSubmitCommand, ProgressSubmitResponseDto, TaskWithProgressDto } from '../../types/api';
 
 /**
  * Service for interacting with Play/Task endpoints.
@@ -24,10 +24,11 @@ export const getTask = async (taskId: string) => {
   return resp.data;
 };
 
-export const generateTask = async (level: number, createdById?: string) => {
+export const generateTask = async (level: number, createdById?: string): Promise<TaskWithProgressDto> => {
   const cmd: any = { level };
   if (createdById) cmd.createdById = createdById;
-  const resp = await api.post<TaskDto>('/tasks/generate', cmd);
+  // backend returns { task, progressId }
+  const resp = await api.post<TaskWithProgressDto>('/tasks/generate', cmd);
   return resp.data;
 };
 
