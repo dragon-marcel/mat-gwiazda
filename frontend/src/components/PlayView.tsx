@@ -14,12 +14,14 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?:
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProgressSubmitResponseDto | null>(null);
   const [correctIndex, setCorrectIndex] = useState<number | null>(null);
+  const [explanation, setExplanation] = useState<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     setSelectedOption(null);
     setError(null);
     setResult(null);
+    setExplanation(null);
     // prefer server-provided correctIndex when present
     if (task && (task as any).correctOptionIndex !== undefined && (task as any).correctOptionIndex !== null) {
       setCorrectIndex((task as any).correctOptionIndex as number);
@@ -85,6 +87,8 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?:
       console.debug('TaskPlayer: normalized result:', normalized);
       const normalizedResult = { ...normalized } as ProgressSubmitResponseDto;
       setResult(normalizedResult);
+      // reveal explanation from response if present
+      setExplanation((normalizedResult as any).explanation ?? null);
       // notify parent that a result is now shown (so parent can avoid auto-generating next task)
       if (onResult) onResult(normalizedResult);
 
@@ -93,12 +97,18 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?:
       // Defer updating the auth context until the user clicks "Następne pytanie" (handled in PlayView).
       // updateUserFromProgress(resp);
 
-      // attempt to fetch full task (may include authoritative correctOptionIndex)
+      // attempt to fetch full task (may include authoritative correctOptionIndex and explanation)
+      // use the freshly normalizedResult (captured) instead of the stale `result` state
       void getTask(task.id).then((full) => {
-        if (full && typeof full.correctOptionIndex === 'number') {
+        if (!full) return;
+        if (typeof full.correctOptionIndex === 'number') {
           // eslint-disable-next-line no-console
           console.debug('TaskPlayer: fetched full task with correctIndex:', full.correctOptionIndex);
           setCorrectIndex(full.correctOptionIndex);
+        }
+        // Only set explanation if we already have a result (we must not reveal explanation before submit)
+        if (normalizedResult && (full.explanation !== undefined && full.explanation !== null)) {
+          setExplanation(full.explanation ?? null);
         }
       }).catch(() => { /* ignore */ });
 
@@ -117,7 +127,10 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?:
   return (
     <div className="p-4">
       <h4 className="text-lg font-semibold mb-2">{task.prompt}</h4>
-      <div className="prose max-w-none mb-4 text-sm text-slate-800 dark:text-slate-100">{task.explanation ?? ''}</div>
+      {/* Explanation is hidden until user submits an answer */}
+      {explanation ? (
+        <div className="prose max-w-none mb-4 text-sm text-slate-800 dark:text-slate-100">{explanation}</div>
+      ) : null}
 
       {isMultipleChoice ? (
         <div className="space-y-2 mb-4" role="radiogroup" aria-label={`Opcje dla zadania ${task.prompt}`}>
