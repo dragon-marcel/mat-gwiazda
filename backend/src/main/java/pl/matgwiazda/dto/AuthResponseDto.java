@@ -25,5 +25,9 @@ public class AuthResponseDto {
 
     public String getRefreshToken() { return refreshToken; }
     public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
-}
 
+    // Added record-style accessors used by tests (accessToken(), refreshToken(), expiresIn())
+    public String accessToken() { return accessToken; }
+    public String refreshToken() { return refreshToken; }
+    public long expiresIn() { return expiresIn; }
+}

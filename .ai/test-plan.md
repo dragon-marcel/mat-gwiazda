@@ -3,11 +3,11 @@
 > Plik: `ai/test-plan.md`
 
 ## 1. Wprowadzenie i cele testowania
-Celem testów jest zapewnienie jakości funkcjonalnej i niefunkcjonalnej aplikacji MatGwiazda (Frontend: Astro + React; Backend: Java Spring Boot; Baza: Supabase PostgreSQL; integracja z AI/openrouter). Testy mają wykryć regresje, zweryfikować integracje (zwłaszcza z Supabase i usługą AI), zapewnić wydajność, dostępność oraz bezpieczeństwo.
+Celem testów jest zapewnienie jakości funkcjonalnej i niefunkcjonalnej aplikacji MatGwiazda (Frontend: Astro + React; Backend: Java Spring Boot; Baza: PostgreSQL (integration tests use Testcontainers); integracja z AI/openrouter). Testy mają wykryć regresje, zweryfikować integracje (zwłaszcza integracje AI i warstwę danych), zapewnić wydajność, dostępność oraz bezpieczeństwo.
 
 Cele szczegółowe:
 - Weryfikacja krytycznych przepływów użytkownika: rejestracja, logowanie, rozgrywka (quiz), zapisywanie postępów oraz system punktów/poziomów.
-- Walidacja integracji pomiędzy frontendem, backendem, Supabase i openrouter.ai (mocki i sandboxy).
+- Walidacja integracji pomiędzy frontendem, backendem, bazą danych i openrouter.ai (mocki i sandboxy).
 - Zapewnienie stabilności dzięki testom jednostkowym, integracyjnym i E2E oraz kontroli regresji w CI.
 - Wykrycie problemów bezpieczeństwa (RLS, uwierzytelnianie, podatności zależności).
 
@@ -15,7 +15,7 @@ Cele szczegółowe:
 Obszary objęte testami:
 - Backend: REST API, warstwa serwisowa, DTO (immutable records), walidacja (Bean Validation), autoryzacja/uwierzytelnianie, logika punktów/poziomów, migracje DB.
 - Frontend: komponenty interaktywne React (PlayView, OptionRow, formularze auth), strony Astro, responsywność i dostępność.
-- Integracje: Supabase (auth, RLS, tabele postępów), openrouter.ai (generowanie zadań), WebSocket/streamy (jeśli występują).
+- Integracje: openrouter.ai (generowanie zadań), PostgreSQL (Testcontainers w testach integracyjnych; w środowisku produkcyjnym może być Supabase — patrz uwagi dotyczące RLS).
 - E2E: klasyczne ścieżki użytkownika (rejestracja → logowanie → rozgrywka → zapis postępu).
 - Niefunkcjonalne: wydajność (Lighthouse/k6), bezpieczeństwo (OWASP ZAP), dostępność (axe-core).
 
@@ -26,7 +26,7 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
   - Backend: JUnit 5 + Mockito do testów serwisów, mapperów, walidacji i algorytmów punktów/poziomów.
   - Frontend: Vitest + React Testing Library do testów komponentów i hooków (`src/hooks`).
 - Testy integracyjne
-  - Backend: Spring Boot Test z Testcontainers (PostgreSQL) do testów repozytoriów, migracji i endpointów.
+  - Backend: Spring Boot Test z Testcontainers (PostgreSQL) — repo zawiera wspólną konfigurację integracyjnych testów z singletonem kontenera (zob. `backend/src/test/java/pl/matgwiazda/integration/IntegrationTestBase.java` i `TestPostgresContainer.java`). Testcontainers jest rejestrowany przed uruchomieniem kontekstu Spring dzięki blokowi statycznemu w `IntegrationTestBase` i przekazuje właściwości JDBC przez `@DynamicPropertySource`.
   - Integracje z openrouter: WireMock lub stuby HTTP, testy z mockami.
   - Frontend: integracyjne testy z MSW (Mock Service Worker) do symulowania API.
 - Testy API / kontraktów
@@ -36,9 +36,9 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
 - Testy wydajnościowe
   - Lighthouse (frontend), k6/JMeter (backend API).
 - Testy bezpieczeństwa
-  - OWASP ZAP, skany zależności (Snyk/Dependabot), weryfikacja RLS w Supabase.
+  - OWASP ZAP, skany zależności (Snyk/Dependabot), weryfikacja polityk RLS (patrz uwagi poniżej).
 - Testy migracji i danych
-  - Uruchamianie skryptów migracyjnych z `db/supabase/migrations` na testowej bazie (Testcontainers) i weryfikacja efektów.
+  - Uruchamianie skryptów migracyjnych z `db/supabase/migrations` (lub z katalogu migracji projektu) na Testcontainers PostgreSQL i weryfikacja efektów (schemat, dane seedujące, reguły RLS). Używanie Testcontainers umożliwia uruchomienie migracji i sprawdzenie polityk dostępu lokalnie/CI bez zależności od zewnętrznego hosta.
 - Testy smoke i regresji
   - Krótkie smoke tests uruchamiane w CI dla szybkiej weryfikacji buildów; pełna regresja przed release.
 
@@ -50,9 +50,9 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
 - Preconditions: czysta baza testowa lub brak użytkownika z danym emailem.
 - Kroki:
   1. Otworzyć `RegisterPage`, wprowadzić poprawne dane i wysłać formularz.
-  2. Sprawdzić odpowiedź API i rekord w DB.
+  2. Sprawdzić odpowiedź API i rekord w DB (test integracyjny powinien odpytać Testcontainers PostgreSQL).
 - Oczekiwany rezultat: użytkownik utworzony, sesja/tokens ustawione, przekierowanie do strony powitalnej.
-- Edge cases: istniejący email, słabe hasło, brak połączenia z Supabase.
+- Edge cases: istniejący email, słabe hasło, brak połączenia z serwisem uwierzytelniania.
 
 ### B. Logowanie i autoryzacja
 - Cel: poprawne logowanie i dostęp do chronionych endpointów.
@@ -86,8 +86,11 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
 
 ### F. Migracje DB i RLS
 - Cel: poprawność migracji SQL i działanie reguł RLS.
-- Kroki: uruchom migracje na Testcontainers; sprawdź reguły, czy użytkownik widzi tylko swoje rekordy.
-- Edge cases: niekompletne migracje, rollback.
+- Kroki: uruchom migracje na Testcontainers PostgreSQL (używając skryptów migracyjnych projektu), następnie zweryfikuj:
+  - czy tabele i indeksy zostały utworzone poprawnie,
+  - czy seed-data (jeśli wymagane) jest załadowane,
+  - czy reguły RLS działają zgodnie z oczekiwaniami (testy integracyjne powinny symulować różne użytkowniki/role i sprawdzać dostęp do rekordów).
+- Edge cases: niekompletne migracje, rollback, różnice w konfiguracji między Supabase a czystym PostgreSQL (jeżeli projekt używa Supabase-specific features trzeba to odzwierciedlić w migracjach testowych).
 
 ### G. Dostępność i responsywność
 - Cel: poprawność UI na różnych rozdzielczościach i zgodność z podstawowymi zasadami dostępności.
@@ -101,9 +104,9 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
 - Lokalne:
   - Frontend: Node.js (wersja z `package.json`), vite dev server, Vitest/Playwright.
   - Backend: JDK 17, Gradle wrapper; profil `test`.
-  - Baza: Testcontainers PostgreSQL lub lokalny Supabase emulator.
+  - Baza: Testcontainers PostgreSQL (integration tests use the singleton container). Do lokalnego debugowania można też użyć lokalnej bazy/Postgres lub emulatora Supabase, ale integracyjne testy w repo korzystają z Testcontainers dla izolacji i deterministycznych środowisk CI.
   - Mocki openrouter: WireMock / lokalny stub.
-- CI (GitHub Actions): budowanie backendu, uruchamianie testów jednostkowych i integracyjnych, uruchamianie testów frontendowych, E2E na środowisku tymczasowym (ephemeral).
+- CI (GitHub Actions): budowanie backendu, uruchamianie testów jednostkowych i integracyjnych (Testcontainers), uruchamianie testów frontendowych, E2E na środowisku tymczasowym (ephemeral).
 - Staging: kopia konfiguracji produkcyjnej (separacja kluczy), realna instancja Supabase dev/stage.
 - Test data: seedery i rollback/transakcje, izolacja danych między testami.
 
@@ -167,7 +170,7 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
 ## Dodatkowe rekomendacje i uwagi techniczne
 - Krytyczne ryzyka:
   - Integracja z openrouter.ai: zmienność formatu odpowiedzi → wymaga mocków, walidacji formatu i fallbacków.
-  - Reguły RLS w Supabase: mogą powodować niespodziewane błędy dostępu → testy RLS obowiązkowe.
+  - Reguły RLS w Supabase: mogą powodować niespodziewane błędy dostępu → testy RLS obowiązkowe; jeśli projekt używa Supabase-specific features należy odzwierciedlić je w migracjach uruchamianych na Testcontainers PostgreSQL.
   - Flakiness E2E: izolacja DB per job, seedery, retryy dla znanych flaków i separacja testów stateful.
 - Zalecane artefakty:
   - `tests/README.md` — instrukcja uruchamiania testów lokalnie i w CI.
@@ -178,4 +181,3 @@ Poza zakresem (do osobnej ścieżki): długotrwałe testy chaos engineering oraz
 ---
 
 _Plik wygenerowano automatycznie na podstawie analizy repozytorium i stosu technologicznego. Dopasuj metryki (progi pokrycia, KPI wydajności) do wymagań biznesowych projektu przed zatwierdzeniem planu._
-

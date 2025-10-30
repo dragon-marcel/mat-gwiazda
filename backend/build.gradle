@@ -41,9 +41,18 @@ dependencies {
     testImplementation('org.mockito:mockito-junit-jupiter:5.5.0')
     testImplementation('org.springframework.security:spring-security-test:6.2.2')
 
-    // NOTE: Integration-only dependencies (Testcontainers, Flyway, REST-assured) removed per request
+    // Integration test dependencies
+    testImplementation('org.testcontainers:junit-jupiter:1.17.6')
+    testImplementation('org.testcontainers:postgresql:1.17.6')
+    testImplementation('com.github.tomakehurst:wiremock-jre8:2.35.0')
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Configure test task to run with a single fork
+    // Ensure Gradle uses only one test JVM to avoid Testcontainers conflicts across JVMs
+    maxParallelForks = 1
+
+    // Disable JUnit parallel execution to avoid Testcontainers conflicts between parallel test JVMs
+    systemProperty "junit.jupiter.execution.parallel.enabled", "false"
 }
