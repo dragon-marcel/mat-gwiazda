@@ -36,6 +36,17 @@ Key goals:
 - AI: Integration with openrouter.ai (or another AI endpoint) for dynamic task generation
 - CI/CD & Hosting: GitHub Actions (recommended), hosting on DigitalOcean (recommended)
 
+### Testowanie
+- Testy jednostkowe:
+  - Backend: JUnit 5, Mockito oraz Spring Boot Test (zalecane użycie Testcontainers dla testów zależnych od bazy danych).
+  - Frontend: Vitest + React Testing Library; MSW (Mock Service Worker) do mockowania API w testach jednostkowych i integracyjnych.
+- Testy E2E:
+  - Playwright (zalecany) — automatyzacja scenariuszy użytkownika, integracja z axe-core dla testów dostępności.
+  - Alternatywa: Cypress.
+- Narzędzia uzupełniające:
+  - REST-assured lub Postman/Newman do testów kontraktów/endpointów backendu.
+  - WireMock do stubowania zewnętrznych serwisów (np. openrouter.ai) w testach integracyjnych.
+
 <a name="getting-started-locally"></a>
 ## Getting Started Locally
 Prerequisites:

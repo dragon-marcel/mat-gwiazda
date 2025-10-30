@@ -40,3 +40,18 @@
 ## 🔁 CI/CD i Hosting
 - **GitHub Actions:** Automatyzuje procesy build, test i deployment zarówno dla frontendu (Astro + React), jak i backendu (Spring Boot).  
 - **DigitalOcean:** Hosting aplikacji backendowej i bazy danych z możliwością skalowania.
+
+---
+
+## 🔬 Testowanie
+- Testy jednostkowe:
+  - Backend: JUnit 5 + Mockito, Spring Boot Test; użycie Testcontainers (PostgreSQL) dla testów zależnych od bazy danych.
+  - Frontend: Vitest + React Testing Library; MSW (Mock Service Worker) do mockowania API w testach jednostkowych i integracyjnych.
+  - Rekomendacja: izolować logikę biznesową w serwisach i testować DTO jako immutable `record`y (backend).
+- Testy E2E:
+  - Playwright (zalecany) — automatyzacja scenariuszy użytkownika (rejestracja → logowanie → rozgrywka → zapis postępu); integracja z `axe-core` dla kontroli dostępności.
+  - Alternatywa: Cypress.
+- Narzędzia wspierające:
+  - REST-assured lub Postman/Newman do testów kontraktowych endpointów backendu.
+  - WireMock do stubowania zewnętrznych serwisów (np. openrouter.ai) w testach integracyjnych.
+  - k6 / Lighthouse do testów wydajnościowych i generowania metryk.
