@@ -24,6 +24,10 @@ public class UserDto {
 
     public UserDto() {}
 
+    public UserDto(UUID id, String email, String userName, String role, boolean isActive) {
+        this(id, email, userName, role, (short)0, 0, 0, isActive, null, null, null);
+    }
+
     public UserDto(UUID id, String email, String userName, String role, short currentLevel, int points, int stars, boolean isActive, Instant createdAt, Instant updatedAt, Instant lastActiveAt) {
         this.id = id;
         this.email = email;
@@ -84,4 +88,3 @@ public class UserDto {
         return Objects.hash(id);
     }
 }
-

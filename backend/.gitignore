@@ -35,6 +35,12 @@ out/
 
 ### VS Code ###
 .vscode/
+# ...existing code...
+# Local test env files (do not commit secrets)
+backend/.env.test
+*.env.test
+.env.test
+# ...existing code...
 
 ### Local secret property files (do NOT commit API keys)
 # Local OpenRouter properties file (ignored)

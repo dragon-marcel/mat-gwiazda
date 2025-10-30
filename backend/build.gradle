@@ -37,11 +37,11 @@ dependencies {
     testImplementation(libs.spring.boot.starter.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    // Test dependencies: Mockito, Testcontainers, REST-assured
+    // Unit test dependencies
     testImplementation('org.mockito:mockito-junit-jupiter:5.5.0')
-    testImplementation('org.testcontainers:junit-jupiter:1.18.3')
-    testImplementation('org.testcontainers:postgresql:1.18.3')
-    testImplementation('io.rest-assured:rest-assured:5.3.0')
+    testImplementation('org.springframework.security:spring-security-test:6.2.2')
+
+    // NOTE: Integration-only dependencies (Testcontainers, Flyway, REST-assured) removed per request
 }
 
 tasks.named('test') {
