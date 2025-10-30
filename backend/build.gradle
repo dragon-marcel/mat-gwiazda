@@ -36,6 +36,12 @@ dependencies {
 
     testImplementation(libs.spring.boot.starter.test)
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    // Test dependencies: Mockito, Testcontainers, REST-assured
+    testImplementation('org.mockito:mockito-junit-jupiter:5.5.0')
+    testImplementation('org.testcontainers:junit-jupiter:1.18.3')
+    testImplementation('org.testcontainers:postgresql:1.18.3')
+    testImplementation('io.rest-assured:rest-assured:5.3.0')
 }
 
 tasks.named('test') {

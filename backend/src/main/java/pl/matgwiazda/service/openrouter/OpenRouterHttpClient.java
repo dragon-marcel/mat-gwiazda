@@ -117,3 +117,4 @@ public class OpenRouterHttpClient {
         return s.substring(0, MAX_TRUNC_LEN) + "...[truncated]";
     }
 }
+
