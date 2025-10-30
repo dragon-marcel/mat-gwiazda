@@ -1,53 +1,73 @@
 package pl.matgwiazda.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.ConcurrencyFailureException;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import pl.matgwiazda.domain.entity.LearningLevel;
+import pl.matgwiazda.domain.entity.Progress;
 import pl.matgwiazda.domain.entity.Task;
 import pl.matgwiazda.domain.entity.User;
-import pl.matgwiazda.domain.entity.Progress;
 import pl.matgwiazda.dto.TaskDto;
 import pl.matgwiazda.dto.TaskGenerateCommand;
 import pl.matgwiazda.dto.TaskWithProgressDto;
 import pl.matgwiazda.mapper.TaskMapper;
+import pl.matgwiazda.repository.LearningLevelRepository;
+import pl.matgwiazda.repository.ProgressRepository;
 import pl.matgwiazda.repository.TaskRepository;
 import pl.matgwiazda.repository.UserRepository;
-import pl.matgwiazda.repository.ProgressRepository;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class TaskService {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskService.class);
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TaskMapper taskMapper;
     private final ProgressRepository progressRepository;
     private final TransactionTemplate txTemplate;
+    private final LearningLevelRepository learningLevelRepository;
+    private final OpenRouterService openRouterService;
 
     @Autowired
-    public TaskService(TaskRepository taskRepository, UserRepository userRepository, TaskMapper taskMapper, ProgressRepository progressRepository, PlatformTransactionManager txManager) {
+    public TaskService(TaskRepository taskRepository, UserRepository userRepository, TaskMapper taskMapper, ProgressRepository progressRepository, PlatformTransactionManager txManager, LearningLevelRepository learningLevelRepository, OpenRouterService openRouterService) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
         this.taskMapper = taskMapper;
         this.progressRepository = progressRepository;
         this.txTemplate = new TransactionTemplate(txManager);
+        this.learningLevelRepository = learningLevelRepository;
+        this.openRouterService = openRouterService;
     }
 
     // Public wrapper with retry logic using TransactionTemplate
     public TaskWithProgressDto generateTask(TaskGenerateCommand cmd, UUID userId) {
         final int maxAttempts = 3;
         int attempt = 0;
+
+        // Fetch learning level early (avoid holding DB locks while calling external API)
+        LearningLevel learningLevel = null;
+        if (cmd != null && cmd.getLevel() != null) {
+            learningLevel = learningLevelRepository.findById(cmd.getLevel()).orElse(null);
+        }
+
         while (true) {
             attempt++;
             try {
+                final LearningLevel finalLearningLevel = learningLevel; // effectively final for lambda
                 return txTemplate.execute((TransactionCallback<TaskWithProgressDto>) status -> {
                     // Validate user
                     User user = null;
@@ -72,33 +92,31 @@ public class TaskService {
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "`createdById` does not reference an existing user"));
                     }
 
-                    // Simple generator: arithmetic question influenced by level
-                    short level = cmd.getLevel();
-                    int a = level * 2;
-                    int b = Math.max(1, level + 1);
-                    int correct = a + b;
+                    // Attempt AI generation if we have a learning level template
+                    AiTaskResult aiResult = null;
+                    if (finalLearningLevel != null) {
+                        try {
+                            // use single-arg overload (seed from learningLevel.description)
+                            aiResult = openRouterService.generateTaskFromSeed(finalLearningLevel.getDescription());
+                        } catch (OpenRouterException ex) {
+                            log.warn("OpenRouter generation failed: {}", ex.getMessage());
+                            // do not rethrow - fallback path below
+                        }
+                    }
 
-                    String prompt = String.format("Compute %d + %d", a, b);
-
-                    // Create options and shuffle
-                    List<String> options = new ArrayList<>();
-                    options.add(String.valueOf(correct));
-                    options.add(String.valueOf(correct + 1));
-                    options.add(String.valueOf(Math.max(0, correct - 1)));
-                    options.add(String.valueOf(correct + 2));
-                    Collections.shuffle(options);
-
-                    int correctIndex = options.indexOf(String.valueOf(correct));
-
-                    // Build Task entity
-                    Task task = new Task();
-                    task.setLevel(level);
-                    task.setPrompt(prompt);
-                    task.setCorrectOptionIndex((short) correctIndex);
-                    task.setExplanation(null); // no explanation by default for generated tasks
-                    task.setCreatedBy(createdBy);
-                    task.setActive(true);
-                    task.setOptions(options);
+                    Task task = null;
+                    if (aiResult != null) {
+                        // Map AI result to Task entity
+                        task = new Task();
+                        task.setLevel(cmd.getLevel());
+                        task.setPrompt(aiResult.prompt());
+                        // AiTaskResult.options() now returns List<String> - copy into new ArrayList to get a mutable list
+                        task.setOptions(new ArrayList<>(aiResult.options()));
+                        task.setCorrectOptionIndex((short) aiResult.correctIndex());
+                        task.setExplanation(aiResult.explanation());
+                        task.setCreatedBy(createdBy);
+                        task.setActive(true);
+                    }
 
                     // Persist generated task
                     Task savedTask = taskRepository.save(task);

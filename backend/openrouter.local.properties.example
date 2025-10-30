@@ -1,0 +1,6 @@
+# Copy this file to `openrouter.local.properties` and add your real key there.
+# The actual `openrouter.local.properties` file is ignored by git (see backend/.gitignore).
+# Do NOT commit your real API key.
+
+openrouter.apiKey=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
+

@@ -1,0 +1,23 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "math_prompt_v1",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": { "type": "string", "minLength": 5, "maxLength": 1000 },
+        "choices": { "type": "array", "minItems": 2, "maxItems": 10, "items": { "type": "string", "minLength": 1 } },
+        "options": { "type": "array", "minItems": 2, "maxItems": 10, "items": { "type": "string", "minLength": 1 } },
+        "correctIndex": { "type": "integer", "minimum": 0 },
+        "explanation": { "type": "string", "maxLength": 1000 }
+      },
+      "anyOf": [
+        { "required": ["prompt", "choices", "correctIndex"] },
+        { "required": ["prompt", "options", "correctIndex"] }
+      ],
+      "additionalProperties": false
+    }
+  }
+}
+
