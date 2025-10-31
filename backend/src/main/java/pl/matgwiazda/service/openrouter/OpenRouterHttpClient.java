@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import pl.matgwiazda.config.OpenRouterProperties;
-import pl.matgwiazda.service.OpenRouterException;
+import pl.matgwiazda.exception.OpenRouterException;
 
 import java.util.List;
 

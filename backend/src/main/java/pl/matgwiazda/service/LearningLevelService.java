@@ -8,6 +8,7 @@ import pl.matgwiazda.dto.UpdateLearningLevelCommand;
 import pl.matgwiazda.repository.LearningLevelRepository;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import pl.matgwiazda.mapper.LearningLevelMapper;
 
 import java.time.Instant;
 import java.util.List;
@@ -18,18 +19,20 @@ import java.util.stream.Collectors;
 public class LearningLevelService {
 
     private final LearningLevelRepository repository;
+    private final LearningLevelMapper mapper;
 
-    public LearningLevelService(LearningLevelRepository repository) {
+    public LearningLevelService(LearningLevelRepository repository, LearningLevelMapper mapper) {
         this.repository = repository;
+        this.mapper = mapper;
     }
 
     public List<LearningLevelDto> listAll() {
-        return repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+        return repository.findAll().stream().map(mapper::toDto).collect(Collectors.toList());
     }
 
     public LearningLevelDto getByLevel(short level) {
         LearningLevel ll = repository.findById(level).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Learning level not found"));
-        return toDto(ll);
+        return mapper.toDto(ll);
     }
 
     public LearningLevelDto create(CreateLearningLevelCommand cmd, UUID actor) {
@@ -38,13 +41,13 @@ public class LearningLevelService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Learning level already exists");
         }
         LearningLevel ent = new LearningLevel();
-        ent.setLevel((short) level);
+        ent.setLevel(level);
         ent.setTitle(cmd.getTitle().trim());
         ent.setDescription(cmd.getDescription().trim());
         ent.setCreatedAt(Instant.now());
         ent.setCreatedBy(actor);
         repository.save(ent);
-        return toDto(ent);
+        return mapper.toDto(ent);
     }
 
     public LearningLevelDto update(short level, UpdateLearningLevelCommand cmd, UUID actor) {
@@ -63,24 +66,11 @@ public class LearningLevelService {
             ent.setModifiedBy(actor);
             repository.save(ent);
         }
-        return toDto(ent);
+        return mapper.toDto(ent);
     }
 
     public void delete(short level) {
         if (!repository.existsById(level)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Learning level not found");
         repository.deleteById(level);
     }
-
-    private LearningLevelDto toDto(LearningLevel ent) {
-        return new LearningLevelDto(
-                ent.getLevel(),
-                ent.getTitle(),
-                ent.getDescription(),
-                ent.getCreatedBy(),
-                ent.getCreatedAt(),
-                ent.getModifiedBy(),
-                ent.getModifiedAt()
-        );
-    }
 }
-

@@ -13,7 +13,7 @@ import pl.matgwiazda.repository.LearningLevelRepository;
 import pl.matgwiazda.repository.ProgressRepository;
 import pl.matgwiazda.repository.TaskRepository;
 import pl.matgwiazda.repository.UserRepository;
-import pl.matgwiazda.service.AiTaskResult;
+import pl.matgwiazda.dto.openrouter.AiTaskResult;
 import pl.matgwiazda.service.OpenRouterService;
 import pl.matgwiazda.service.TaskService;
 

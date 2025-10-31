@@ -9,7 +9,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import pl.matgwiazda.domain.entity.LearningLevel;
@@ -19,6 +18,8 @@ import pl.matgwiazda.domain.entity.User;
 import pl.matgwiazda.dto.TaskDto;
 import pl.matgwiazda.dto.TaskGenerateCommand;
 import pl.matgwiazda.dto.TaskWithProgressDto;
+import pl.matgwiazda.dto.openrouter.AiTaskResult;
+import pl.matgwiazda.exception.OpenRouterException;
 import pl.matgwiazda.mapper.TaskMapper;
 import pl.matgwiazda.repository.LearningLevelRepository;
 import pl.matgwiazda.repository.ProgressRepository;
@@ -33,6 +34,8 @@ import java.util.UUID;
 public class TaskService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskService.class);
+    private static final int DEFAULT_MAX_ATTEMPTS = 3;
+    private static final long BACKOFF_STEP_MS = 50L;
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
@@ -41,9 +44,10 @@ public class TaskService {
     private final TransactionTemplate txTemplate;
     private final LearningLevelRepository learningLevelRepository;
     private final OpenRouterService openRouterService;
+    private final ProgressService progressService;
 
     @Autowired
-    public TaskService(TaskRepository taskRepository, UserRepository userRepository, TaskMapper taskMapper, ProgressRepository progressRepository, PlatformTransactionManager txManager, LearningLevelRepository learningLevelRepository, OpenRouterService openRouterService) {
+    public TaskService(TaskRepository taskRepository, UserRepository userRepository, TaskMapper taskMapper, ProgressRepository progressRepository, PlatformTransactionManager txManager, LearningLevelRepository learningLevelRepository, OpenRouterService openRouterService, ProgressService progressService) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
         this.taskMapper = taskMapper;
@@ -51,102 +55,125 @@ public class TaskService {
         this.txTemplate = new TransactionTemplate(txManager);
         this.learningLevelRepository = learningLevelRepository;
         this.openRouterService = openRouterService;
+        this.progressService = progressService;
     }
 
-    // Public wrapper with retry logic using TransactionTemplate
+    /**
+     * Generate a task for a user (with retry on concurrency failures).
+     */
     public TaskWithProgressDto generateTask(TaskGenerateCommand cmd, UUID userId) {
-        final int maxAttempts = 3;
         int attempt = 0;
 
         // Fetch learning level early (avoid holding DB locks while calling external API)
-        LearningLevel learningLevel = null;
-        if (cmd != null && cmd.getLevel() != null) {
-            learningLevel = learningLevelRepository.findById(cmd.getLevel()).orElse(null);
-        }
+        Optional<LearningLevel> learningLevel = fetchLearningLevel(cmd);
 
         while (true) {
             attempt++;
             try {
-                final LearningLevel finalLearningLevel = learningLevel; // effectively final for lambda
-                return txTemplate.execute((TransactionCallback<TaskWithProgressDto>) status -> {
-                    // Validate user
-                    User user = null;
-                    if (userId != null) {
-                        // Lock the user row first to establish consistent lock ordering (user -> progress)
-                        user = userRepository.findByIdForUpdate(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found"));
-                        // if user already has an active progress, return existing task+progress
-                        if (user.getActiveProgressId() != null) {
-                            UUID existingProgressId = user.getActiveProgressId();
-                            Optional<Progress> existingProgress = progressRepository.findById(existingProgressId);
-                            if (existingProgress.isPresent()) {
-                                Task existingTask = existingProgress.get().getTask();
-                                return new TaskWithProgressDto(taskMapper.toDto(existingTask), existingProgressId);
-                            }
-                        }
-                    }
-
-                    // Resolve createdBy if provided
-                    User createdBy = null;
-                    if (cmd.getCreatedById() != null) {
-                        createdBy = userRepository.findById(cmd.getCreatedById())
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "`createdById` does not reference an existing user"));
-                    }
-
-                    // Attempt AI generation if we have a learning level template
-                    AiTaskResult aiResult = null;
-                    if (finalLearningLevel != null) {
-                        try {
-                            // use single-arg overload (seed from learningLevel.description)
-                            aiResult = openRouterService.generateTaskFromSeed(finalLearningLevel.getDescription());
-                        } catch (OpenRouterException ex) {
-                            log.warn("OpenRouter generation failed: {}", ex.getMessage());
-                            // do not rethrow - fallback path below
-                        }
-                    }
-
-                    Task task = null;
-                    if (aiResult != null) {
-                        // Map AI result to Task entity
-                        task = new Task();
-                        task.setLevel(cmd.getLevel());
-                        task.setPrompt(aiResult.prompt());
-                        // AiTaskResult.options() now returns List<String> - copy into new ArrayList to get a mutable list
-                        task.setOptions(new ArrayList<>(aiResult.options()));
-                        task.setCorrectOptionIndex((short) aiResult.correctIndex());
-                        task.setExplanation(aiResult.explanation());
-                        task.setCreatedBy(createdBy);
-                        task.setActive(true);
-                    }
-
-                    // Persist generated task
-                    Task savedTask = taskRepository.save(task);
-
-                    // Create progress for this task and user
-                    Progress progress = new Progress();
-                    if (user != null) progress.setUser(user);
-                    progress.setTask(savedTask);
-                    progress.setAttemptNumber(1);
-                    progress.setCorrect(false);
-                    progress.setPointsAwarded(0);
-                    progress.setFinalized(false);
-                    // Persist progress first
-                    Progress savedProgress = progressRepository.save(progress);
-
-                    // Update user's activeProgressId while still holding the user lock (if user was locked)
-                    if (user != null) {
-                        user.setActiveProgressId(savedProgress.getId());
-                        userRepository.save(user);
-                    }
-
-                    return new TaskWithProgressDto(taskMapper.toDto(savedTask), savedProgress.getId());
-                });
+                final LearningLevel finalLearningLevel = learningLevel.orElse(null); // capture for tx
+                return txTemplate.execute(status -> performGenerateTx(cmd, userId, finalLearningLevel));
             } catch (ConcurrencyFailureException ex) {
-                if (attempt >= maxAttempts) throw ex;
-                try { Thread.sleep(50L * attempt); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                if (attempt >= DEFAULT_MAX_ATTEMPTS) throw ex;
+                sleepBackoff(attempt);
             }
         }
     }
 
+    // Transactional worker method
+    private TaskWithProgressDto performGenerateTx(TaskGenerateCommand cmd, UUID userId, LearningLevel finalLearningLevel) {
+        // Validate and lock user (if provided)
+        Optional<User> maybeUser = lockUserIfPresent(userId);
+
+        // If user already has active progress, return it
+        if (maybeUser.isPresent()) {
+            Optional<TaskWithProgressDto> existing = getExistingActiveProgress(maybeUser.get());
+            if (existing.isPresent()) return existing.get();
+        }
+
+        // Resolve createdBy (may throw)
+        Optional<User> createdBy = resolveCreatedBy(cmd);
+
+        // Create Task (may throw if generation failed)
+        Task task = createTaskForCmd(cmd, finalLearningLevel, createdBy.orElse(null));
+
+        Task savedTask = taskRepository.save(task);
+
+        // Create and persist progress using ProgressService
+        Progress progress = progressService.createInitialProgress(maybeUser.orElse(null), savedTask);
+        Progress savedProgress = progressService.persistProgressAndUpdateUser(progress, maybeUser.orElse(null));
+
+        return new TaskWithProgressDto(taskMapper.toDto(savedTask), savedProgress.getId());
+    }
+
+    private Task createTaskForCmd(TaskGenerateCommand cmd, LearningLevel finalLearningLevel, User createdBy) {
+        // Attempt AI generation if we have a learning level template
+        Optional<AiTaskResult> aiResult = tryGenerateAiTask(finalLearningLevel);
+
+        Task task = aiResult.map(ai -> mapAiToTask(ai, cmd, createdBy)).orElse(null);
+
+        if (task == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Task generation failed");
+        }
+        return task;
+    }
+
+    private Optional<LearningLevel> fetchLearningLevel(TaskGenerateCommand cmd) {
+        if (cmd == null || cmd.getLevel() == null) return Optional.empty();
+        return learningLevelRepository.findById(cmd.getLevel());
+    }
+
+    private Optional<User> lockUserIfPresent(UUID userId) {
+        if (userId == null) return Optional.empty();
+        return userRepository.findByIdForUpdate(userId);
+    }
+
+    private Optional<TaskWithProgressDto> getExistingActiveProgress(User user) {
+        if (user.getActiveProgressId() == null) return Optional.empty();
+        Optional<Progress> existingProgress = progressRepository.findById(user.getActiveProgressId());
+        if (existingProgress.isPresent()) {
+            Task existingTask = existingProgress.get().getTask();
+            return Optional.of(new TaskWithProgressDto(taskMapper.toDto(existingTask), existingProgress.get().getId()));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<User> resolveCreatedBy(TaskGenerateCommand cmd) {
+        if (cmd == null || cmd.getCreatedById() == null) return Optional.empty();
+        Optional<User> opt = userRepository.findById(cmd.getCreatedById());
+        if (opt.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "`createdById` does not reference an existing user");
+        }
+        return opt;
+    }
+
+    private Optional<AiTaskResult> tryGenerateAiTask(LearningLevel finalLearningLevel) {
+        if (finalLearningLevel == null) return Optional.empty();
+        try {
+            return Optional.ofNullable(openRouterService.generateTaskFromSeed(finalLearningLevel.getDescription()));
+        } catch (OpenRouterException ex) {
+            log.warn("OpenRouter generation failed: {}", ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private Task mapAiToTask(AiTaskResult aiResult, TaskGenerateCommand cmd, User createdBy) {
+        Task task = taskMapper.fromAiResult(aiResult);
+        // assign primitive short safely with default of 1 if command level is null
+        short levelPrimitive = (cmd != null && cmd.getLevel() != null) ? cmd.getLevel() : (short) 1;
+        task.setLevel(levelPrimitive);
+        task.setCreatedBy(createdBy);
+        task.setActive(true);
+        if (task.getOptions() != null) {
+            task.setOptions(new ArrayList<>(task.getOptions()));
+        }
+        return task;
+    }
+
+    private void sleepBackoff(int attempt) {
+        try { Thread.sleep(BACKOFF_STEP_MS * attempt); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+    }
+
+    @SuppressWarnings("unused")
     public TaskDto generateTask(TaskGenerateCommand cmd) {
         // keep legacy method for admin-like usage (no user binding)
         return generateTask(cmd, null).getTask();
@@ -159,26 +186,28 @@ public class TaskService {
     }
 
     public Page<TaskDto> listTasks(Short level, Boolean isActive, UUID createdById, Pageable pageable) {
-        Page<Task> page;
-        if (level != null && createdById != null && isActive != null) {
-            page = taskRepository.findByLevelAndCreatedByIdAndIsActive(level, createdById, isActive, pageable);
-        } else if (level != null && createdById != null) {
-            page = taskRepository.findByLevelAndCreatedById(level, createdById, pageable);
-        } else if (level != null && isActive != null) {
-            page = taskRepository.findByLevelAndIsActive(level, isActive, pageable);
-        } else if (createdById != null && isActive != null) {
-            page = taskRepository.findByCreatedByIdAndIsActive(createdById, isActive, pageable);
-        } else if (level != null) {
-            page = taskRepository.findByLevel(level, pageable);
-        } else if (createdById != null) {
-            page = taskRepository.findByCreatedById(createdById, pageable);
-        } else if (isActive != null) {
-            page = taskRepository.findByIsActive(isActive, pageable);
-        } else {
-            page = taskRepository.findAll(pageable);
-        }
-
+        Page<Task> page = findTasksPage(level, isActive, createdById, pageable);
         return page.map(taskMapper::toDto);
+    }
+
+    private Page<Task> findTasksPage(Short level, Boolean isActive, UUID createdById, Pageable pageable) {
+        if (level != null && createdById != null && isActive != null) {
+            return taskRepository.findByLevelAndCreatedByIdAndIsActive(level, createdById, isActive, pageable);
+        } else if (level != null && createdById != null) {
+            return taskRepository.findByLevelAndCreatedById(level, createdById, pageable);
+        } else if (level != null && isActive != null) {
+            return taskRepository.findByLevelAndIsActive(level, isActive, pageable);
+        } else if (createdById != null && isActive != null) {
+            return taskRepository.findByCreatedByIdAndIsActive(createdById, isActive, pageable);
+        } else if (level != null) {
+            return taskRepository.findByLevel(level, pageable);
+        } else if (createdById != null) {
+            return taskRepository.findByCreatedById(createdById, pageable);
+        } else if (isActive != null) {
+            return taskRepository.findByIsActive(isActive, pageable);
+        } else {
+            return taskRepository.findAll(pageable);
+        }
     }
 
 }

@@ -10,6 +10,7 @@ import pl.matgwiazda.domain.entity.Task;
 import pl.matgwiazda.domain.entity.User;
 import pl.matgwiazda.dto.TaskDto;
 import pl.matgwiazda.dto.TaskGenerateCommand;
+import pl.matgwiazda.dto.openrouter.AiTaskResult;
 import pl.matgwiazda.mapper.TaskMapper;
 import pl.matgwiazda.repository.LearningLevelRepository;
 import pl.matgwiazda.repository.ProgressRepository;

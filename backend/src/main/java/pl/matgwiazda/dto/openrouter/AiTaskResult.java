@@ -1,4 +1,4 @@
-package pl.matgwiazda.service;
+package pl.matgwiazda.dto.openrouter;
 
 import java.util.List;
 

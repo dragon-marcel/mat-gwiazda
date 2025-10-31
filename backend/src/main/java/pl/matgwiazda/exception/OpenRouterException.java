@@ -1,5 +1,5 @@
 // ...existing code...
-package pl.matgwiazda.service;
+package pl.matgwiazda.exception;
 
 /**
  * Custom runtime exception for OpenRouter/AI integration errors.

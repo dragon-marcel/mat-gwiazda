@@ -14,6 +14,7 @@ import pl.matgwiazda.dto.AuthRegisterCommand;
 import pl.matgwiazda.dto.AuthResponseDto;
 import pl.matgwiazda.repository.UserRepository;
 import pl.matgwiazda.security.JwtService;
+import pl.matgwiazda.mapper.UserMapper;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -24,12 +25,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final UserMapper userMapper;
 
     @Autowired
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.userMapper = userMapper;
     }
 
     /**
@@ -48,7 +51,8 @@ public class AuthService {
         // Hash password using injected PasswordEncoder (BCrypt)
         String hashed = passwordEncoder.encode(cmd.getPassword());
 
-        User user = new User();
+        // Build User from register command using mapper; mapper ignores password so service sets it explicitly
+        User user = userMapper.fromRegister(cmd);
         user.setEmail(cmd.getEmail().trim().toLowerCase());
         user.setPassword(hashed);
         user.setUserName(cmd.getUserName().trim());

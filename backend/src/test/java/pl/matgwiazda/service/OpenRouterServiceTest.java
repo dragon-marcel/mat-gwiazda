@@ -10,6 +10,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import pl.matgwiazda.config.OpenRouterProperties;
+import pl.matgwiazda.dto.openrouter.AiTaskResult;
+import pl.matgwiazda.exception.OpenRouterException;
 import pl.matgwiazda.service.openrouter.OpenRouterHttpClient;
 import pl.matgwiazda.service.openrouter.OpenRouterResponseParser;
 
