@@ -6,10 +6,10 @@
     "dev": "vite --port 5174",
     "build": "vite build",
     "start": "vite preview --port 5174",
-    "test:unit": "vitest",
-    "test:unit:ci": "vitest --run",
-    "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest --watch",
+    "test:unit": "vitest --config vitest.config.cjs",
+    "test:unit:ci": "vitest --config vitest.config.cjs --run",
+    "test:coverage": "vitest --config vitest.config.cjs run --coverage",
+    "test:watch": "vitest --config vitest.config.cjs --watch",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -38,8 +38,10 @@
     "vitest": "^0.34.0",
     "@testing-library/react": "^14.0.0",
     "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.5.0",
     "msw": "^1.2.1",
     "playwright": "^1.40.0",
+    "@playwright/test": "^1.40.0",
     "jsdom": "^22.1.0"
   }
 }
