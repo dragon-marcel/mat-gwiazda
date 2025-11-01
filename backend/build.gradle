@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
 }
@@ -55,4 +56,65 @@ tasks.named('test') {
 
     // Disable JUnit parallel execution to avoid Testcontainers conflicts between parallel test JVMs
     systemProperty "junit.jupiter.execution.parallel.enabled", "false"
+}
+
+afterEvaluate {
+    // Define integrationTest source set
+    sourceSets {
+        integrationTest {
+            java.srcDir file('src/integration/java')
+            resources.srcDir file('src/integration/resources')
+        }
+    }
+
+    configurations {
+        integrationTestImplementation.extendsFrom testImplementation
+        integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    tasks.register('integrationTest', Test) {
+        description = 'Runs integration tests.'
+        group = 'verification'
+        testClassesDirs = sourceSets.integrationTest.output.classesDirs
+        classpath = sourceSets.integrationTest.runtimeClasspath
+        useJUnitPlatform()
+        shouldRunAfter(tasks.named('test'))
+        maxParallelForks = 1
+        systemProperty "junit.jupiter.execution.parallel.enabled", "false"
+    }
+
+    // Configure or register jacocoTestReport depending on whether it already exists
+    if (tasks.findByName('jacocoTestReport')) {
+        tasks.named('jacocoTestReport', org.gradle.testing.jacoco.tasks.JacocoReport).configure {
+            dependsOn tasks.named('test')
+            if (tasks.findByName('integrationTest')) dependsOn tasks.named('integrationTest')
+
+            executionData.setFrom(fileTree(dir: buildDir, includes: ['**/jacoco/*.exec', '**/*.exec']))
+
+            reports {
+                xml.required.set(true)
+                html.required.set(true)
+            }
+
+            additionalSourceDirs.setFrom(files(sourceSets.main.allSource.srcDirs))
+            sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
+            classDirectories.setFrom(files(sourceSets.main.output))
+        }
+    } else {
+        tasks.register('jacocoTestReport', org.gradle.testing.jacoco.tasks.JacocoReport) {
+            dependsOn tasks.named('test')
+            if (tasks.findByName('integrationTest')) dependsOn tasks.named('integrationTest')
+
+            executionData.setFrom(fileTree(dir: buildDir, includes: ['**/jacoco/*.exec', '**/*.exec']))
+
+            reports {
+                xml.required.set(true)
+                html.required.set(true)
+            }
+
+            additionalSourceDirs.setFrom(files(sourceSets.main.allSource.srcDirs))
+            sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
+            classDirectories.setFrom(files(sourceSets.main.output))
+        }
+    }
 }
