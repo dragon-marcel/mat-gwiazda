@@ -10,7 +10,8 @@
     "test:unit:ci": "vitest --config vitest.config.cjs --run",
     "test:coverage": "vitest --config vitest.config.cjs run --coverage",
     "test:watch": "vitest --config vitest.config.cjs --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -31,6 +32,12 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.14",
+    "eslint": "^8.40.0",
+    "@typescript-eslint/parser": "^6.8.0",
+    "@typescript-eslint/eslint-plugin": "^6.8.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-config-prettier": "^9.1.0",
     "postcss": "^8.4.23",
     "tailwindcss": "^3.4.8",
     "typescript": "^5.1.6",
