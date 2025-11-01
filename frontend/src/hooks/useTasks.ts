@@ -45,7 +45,10 @@ const patchToggleActive = async (id: string, isActive: boolean) => {
 
 export const useTasksQuery = (params: Record<string, any>) => {
   // normalize params to stable object for query key
-  const key = useMemo(() => ['tasks', params], [JSON.stringify(params)]);
+  // JSON stringify params into a stable string and use that as the hook dependency
+  const paramsJson = JSON.stringify(params);
+  // Use the serialized params as part of the key to avoid referencing the params object
+  const key = useMemo(() => ['tasks', paramsJson], [paramsJson]);
   return useQuery<Page<TaskDto>, Error>({ queryKey: key, queryFn: () => fetchTasks(params) });
 };
 

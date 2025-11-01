@@ -10,12 +10,6 @@ type Props = {
 
 const truncate = (s?: string, n = 80) => (s && s.length > n ? `${s.slice(0, n)}...` : s || '');
 
-const formatOptions = (opts?: string[] | null, maxChars = 100) => {
-  if (!Array.isArray(opts) || opts.length === 0) return '-';
-  const joined = opts.join(' | ');
-  return joined.length > maxChars ? `${joined.slice(0, maxChars)}...` : joined;
-};
-
 const TasksTable: React.FC<Props> = ({ page, loading, onOpenTask }) => {
   if (loading) return <div className="p-4 text-sm text-muted-foreground">Ładowanie zadań...</div>;
   if (!page || page.content.length === 0) return <div className="p-4 text-sm text-muted-foreground">Brak zadań do wyświetlenia.</div>;

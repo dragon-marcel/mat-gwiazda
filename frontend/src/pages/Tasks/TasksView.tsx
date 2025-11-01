@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTasksQuery, useTaskQuery } from '../../hooks/useTasks';
 import TasksFilterBar from './components/TasksFilterBar';
@@ -12,6 +12,8 @@ const DEFAULT_PAGE_SIZE = 10;
 const TasksView: React.FC = () => {
   const { user } = useAuth();
   const [page, setPage] = useState(0);
+  // keep setter available for future use; disable unused-vars for it
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);

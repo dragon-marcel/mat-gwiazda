@@ -3,17 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { getMe, updateMe, deleteMe } from '../../lib/services/profileService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Button } from '../../components/ui/Button';
-import Stars from '../../components/ui/Stars';
+import ErrorBanner from '../../components/ui/ErrorBanner';
+import PageLayout from '../../components/PageLayout';
 import ProfileForm from './ProfileForm';
 import StatsPanel from './StatsPanel';
 import DangerZone from './DangerZone';
-import ErrorBanner from '../../components/ui/ErrorBanner';
-import PageLayout from '../../components/PageLayout';
 
 const ProfileView: React.FC = () => {
-  const { refreshUser, logout, user } = useAuth();
-  const { theme, toggle } = useTheme();
+  const { refreshUser, logout, user: _user } = useAuth();
+  const { theme: _theme, toggle: _toggle } = useTheme();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,13 +44,13 @@ const ProfileView: React.FC = () => {
     try {
       const updated = await updateMe(payload as any);
       // refresh auth user context so header/stats update immediately
-      try { await refreshUser(); } catch (err) { /* ignore */ }
+      await refreshUser();
       setInitial({ email: updated.email, userName: updated.userName });
       // show success popup
       setSavedMsg('Zapisano zmiany');
       // clear any previous timer
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = window.setTimeout(() => setSavedMsg(null), 3000);
+      if (saveTimerRef.current) globalThis.clearTimeout(saveTimerRef.current as unknown as number);
+      saveTimerRef.current = (globalThis.setTimeout(() => setSavedMsg(null), 3000) as unknown) as number;
     } catch (e: any) {
       // map field-level errors if provided
       const msg = e?.response?.data?.message ?? e?.message ?? 'Błąd podczas aktualizacji profilu';
@@ -65,7 +63,7 @@ const ProfileView: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (saveTimerRef.current) globalThis.clearTimeout(saveTimerRef.current as unknown as number);
     };
   }, []);
 

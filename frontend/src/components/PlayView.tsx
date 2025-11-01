@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getTask, submitProgress, generateTask } from '../lib/services/playService';
-import type { TaskDto, ProgressSubmitResponseDto, TaskWithProgressDto } from '../types/api';
+import type { TaskDto, ProgressSubmitResponseDto } from '../types/api';
 import { Button } from './ui/Button';
 import ErrorBanner from './ui/ErrorBanner';
 import { useAuth } from '../contexts/AuthContext';
@@ -80,8 +80,8 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?:
       console.debug('TaskPlayer.submitProgress response:', resp);
 
       // normalize boolean field
-      const respAny = resp as unknown as Record<string, any>;
-      const normalized: ProgressSubmitResponseDto = { ...(respAny as any), isCorrect: respAny.isCorrect ?? respAny.correct ?? false } as any;
+      const respObj = (resp as unknown) as Record<string, any>;
+      const normalized: ProgressSubmitResponseDto = { ...(respObj as any), isCorrect: respObj.isCorrect ?? respObj.correct ?? false };
       // debug: normalized result
       // eslint-disable-next-line no-console
       console.debug('TaskPlayer: normalized result:', normalized);
@@ -172,7 +172,7 @@ const TaskPlayer: React.FC<{ task: TaskDto | null; progressId?: string; userId?:
             onClick={() => {
               // eslint-disable-next-line no-console
               console.debug('TaskPlayer: Next button clicked, result:', result);
-              if (onNext) onNext(result as ProgressSubmitResponseDto);
+              if (onNext && result) onNext(result);
             }}
           >
             Nowe zadanie
@@ -211,10 +211,9 @@ const PlayView: React.FC = () => {
   useEffect(() => {
     if (initialGeneratedRef.current) return;
     if (!user) return; // wait until we have a user
-    if (selectedTask) {
-      initialGeneratedRef.current = true; // already have a task, nothing to do
-      return;
-    }
+    // If we already generated an initial task previously, bail out.
+    // Do not reference `selectedTask` here to avoid forcing it into the effect deps.
+    if (initialGeneratedRef.current) return;
     if (feedbackVisible) {
       // don't generate while feedback is visible
       // eslint-disable-next-line no-console
@@ -228,7 +227,7 @@ const PlayView: React.FC = () => {
       try {
         // debug log: generation reason
         // eslint-disable-next-line no-console
-        console.debug('PlayView: generating initial task for user', { userId: user?.id, level: user?.currentLevel, selectedTaskExists: Boolean(selectedTask) });
+        console.debug('PlayView: generating initial task for user', { userId: user?.id, level: user?.currentLevel });
         const generated = await generateTask(user?.currentLevel ?? 1, user?.id);
         if (!mounted) return;
         // debug before setting
@@ -304,7 +303,9 @@ const PlayView: React.FC = () => {
               setLastResult(res);
               setFeedbackVisible(true);
               // update auth context immediately so level/points appear right away in the UI
-              try { if (typeof updateUserFromProgress === 'function') updateUserFromProgress(res); } catch (e) { /* ignore */ }
+              if (typeof updateUserFromProgress === 'function') {
+                try { updateUserFromProgress(res); } catch (err) { console.debug('updateUserFromProgress failed', err); }
+              }
             }}
           />
         </div>
@@ -314,7 +315,7 @@ const PlayView: React.FC = () => {
       {lastResult && lastResult.leveledUp === true && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
-          <div role="dialog" aria-modal="true" className="relative bg-white dark:bg-slate-900 rounded-lg p-6 w-[90%] max-w-md mx-4 text-center shadow-lg">
+          <dialog open aria-modal="true" className="relative bg-white dark:bg-slate-900 rounded-lg p-6 w-[90%] max-w-md mx-4 text-center shadow-lg">
             <div className="flex flex-col items-center">
               {/* Large animated star using shared Stars component */}
               <Stars inline size="lg" variant="gold" className="mb-4" />
@@ -334,7 +335,7 @@ const PlayView: React.FC = () => {
                 Zamknij
               </button>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
     </div>
@@ -342,4 +343,3 @@ const PlayView: React.FC = () => {
 };
 
 export default PlayView;
-

@@ -42,7 +42,7 @@ test('prompts CRUD: create, read, update, delete', async ({ page }) => {
       await titleInput.first().fill(newTitle)
       if (await bodyInput.count() > 0) await bodyInput.first().fill(newBody)
       if (await saveBtn.count() > 0) {
-        const [resp] = await Promise.all([
+        await Promise.all([
           page.waitForResponse((r) => r.url().includes('/api/prompts') && (r.status() === 201 || r.status() === 200)).then(() => true).catch(() => false),
           saveBtn.first().click(),
         ])
@@ -78,7 +78,7 @@ test('prompts CRUD: create, read, update, delete', async ({ page }) => {
     const createdId = created.body.id
 
     // READ back the created prompt via UI or API
-    const itemSelector = `[data-testid=\"prompt-${createdId}\"]`
+    const itemSelector = `[data-testid="prompt-${createdId}"]`
     if ((await page.locator(itemSelector).count()) > 0) {
       await expect(page.locator(itemSelector).first()).toContainText(newTitle)
     } else {
@@ -115,7 +115,7 @@ test('prompts CRUD: create, read, update, delete', async ({ page }) => {
     // DELETE the prompt
     const delBtn = page.locator(`${itemSelector} button:has-text("Delete"), ${itemSelector} button:has-text("Remove"), ${itemSelector} a:has-text("Delete")`)
     if (await delBtn.count() > 0) {
-      const [resp] = await Promise.all([
+      await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/prompts/' + createdId) && r.status() === 200).then(() => true).catch(() => false),
         delBtn.first().click(),
       ])

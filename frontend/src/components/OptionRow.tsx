@@ -1,11 +1,9 @@
 import React from 'react';
-import type { ProgressSubmitResponseDto } from '../types/api';
 
 type Props = {
   opt: string;
   i: number;
   selectedOption: number | null;
-  result: ProgressSubmitResponseDto | null;
   correctIndex: number | null;
   disabled?: boolean;
   onSelect: (index: number) => void;
@@ -28,7 +26,7 @@ function computeContainerClass(i: number, selectedOption: number | null, revealC
   return defaultClass;
 }
 
-const OptionRow: React.FC<Props> = ({ opt, i, selectedOption, result, correctIndex, disabled, onSelect, revealCorrect = false }) => {
+const OptionRow: React.FC<Props> = ({ opt, i, selectedOption, correctIndex, disabled, onSelect, revealCorrect = false }) => {
   // Note: By default OptionRow does not reveal correctness. If `revealCorrect` is true
   // the row will highlight the correct option instead (used by TaskDetailsModal).
   const containerClass = computeContainerClass(i, selectedOption, revealCorrect, correctIndex);
