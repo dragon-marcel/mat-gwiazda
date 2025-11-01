@@ -15,6 +15,7 @@ import pl.matgwiazda.dto.AuthRefreshCommand;
 import pl.matgwiazda.dto.AuthResponseDto;
 import pl.matgwiazda.repository.UserRepository;
 import pl.matgwiazda.security.JwtService;
+import pl.matgwiazda.mapper.UserMapper;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +33,8 @@ class AuthServiceTest {
     org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @Mock
     JwtService jwtService;
+    @Mock
+    UserMapper userMapper;
 
     @InjectMocks
     AuthService authService;
@@ -44,6 +47,15 @@ class AuthServiceTest {
         when(jwtService.generateAccessToken(any())).thenReturn("acc");
         when(jwtService.generateRefreshToken(any())).thenReturn("ref");
         when(jwtService.getAccessTokenExpirationMs()).thenReturn(3600000L);
+
+        // stub mapper to produce a User instance (mapper normally maps DTO to entity)
+        when(userMapper.fromRegister(any(AuthRegisterCommand.class))).thenAnswer(inv -> {
+            AuthRegisterCommand c = inv.getArgument(0);
+            User u = new User();
+            u.setEmail(c.getEmail());
+            u.setUserName(c.getUserName());
+            return u;
+        });
 
         AuthResponseDto resp = authService.register(cmd);
 
@@ -129,4 +141,3 @@ class AuthServiceTest {
         assertThrows(ResponseStatusException.class, () -> authService.refresh(cmd));
     }
 }
-

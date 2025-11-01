@@ -3,137 +3,87 @@ package pl.matgwiazda.service;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
+import pl.matgwiazda.domain.entity.Progress;
+import pl.matgwiazda.domain.entity.Task;
 import pl.matgwiazda.domain.entity.User;
 import pl.matgwiazda.dto.ProgressSubmitCommand;
+import pl.matgwiazda.mapper.ProgressMapper;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ProgressServiceUnitTest {
 
     @Test
-    void updateUserStats_levelsGained_and_userUpdated() throws Exception {
-        // Arrange
-        var progressRepo = mock(pl.matgwiazda.repository.ProgressRepository.class);
-        var userRepo = mock(pl.matgwiazda.repository.UserRepository.class);
-        var taskRepo = mock(pl.matgwiazda.repository.TaskRepository.class);
-        var txManager = mock(PlatformTransactionManager.class);
-
-        ProgressService svc = new ProgressService(progressRepo, userRepo, taskRepo, txManager);
-
-        User user = new User();
-        user.setPoints(49);
-        user.setStars(0);
-        user.setCurrentLevel((short)1);
-
-        // Use reflection to invoke private method updateUserStatsAndReturnLevelsGained
-        Method m = ProgressService.class.getDeclaredMethod("updateUserStatsAndReturnLevelsGained", User.class, int.class);
-        m.setAccessible(true);
-
-        // Act
-        int gained = (int) m.invoke(svc, user, 1);
-
-        // Assert
-        assertEquals(1, gained, "Should gain 1 level when reaching 50 points");
-        assertEquals(50, user.getPoints(), "User points should be updated");
-        assertEquals(1, user.getStars(), "User stars should be incremented");
-        assertEquals(2, user.getCurrentLevel(), "User current level should be incremented by 1");
-    }
-
-    @Test
-    void updateUserStats_noLevelGain_when_thresholdNotReached() throws Exception {
-        var progressRepo = mock(pl.matgwiazda.repository.ProgressRepository.class);
-        var userRepo = mock(pl.matgwiazda.repository.UserRepository.class);
-        var taskRepo = mock(pl.matgwiazda.repository.TaskRepository.class);
-        var txManager = mock(PlatformTransactionManager.class);
-
-        ProgressService svc = new ProgressService(progressRepo, userRepo, taskRepo, txManager);
-
-        User user = new User();
-        user.setPoints(100);
-        user.setStars(2);
-        user.setCurrentLevel((short)3);
-
-        Method m = ProgressService.class.getDeclaredMethod("updateUserStatsAndReturnLevelsGained", User.class, int.class);
-        m.setAccessible(true);
-
-        int gained = (int) m.invoke(svc, user, 1);
-
-        assertEquals(0, gained, "Should not gain a level when not crossing 50-point boundary");
-        assertEquals(101, user.getPoints());
-        assertEquals(2, user.getStars());
-        assertEquals(3, user.getCurrentLevel());
-    }
-
-    @Test
     void listAllProgress_nullUser_throws() {
         var progressRepo = mock(pl.matgwiazda.repository.ProgressRepository.class);
         var userRepo = mock(pl.matgwiazda.repository.UserRepository.class);
+        var progressMapper = mock(ProgressMapper.class);
         var taskRepo = mock(pl.matgwiazda.repository.TaskRepository.class);
-        var txManager = mock(PlatformTransactionManager.class);
 
-        ProgressService svc = new ProgressService(progressRepo, userRepo, taskRepo, txManager);
+        ProgressService svc = new ProgressService(progressRepo, userRepo, progressMapper, taskRepo);
 
         assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> svc.listAllProgress(null));
     }
 
     @Test
-    void submitProgress_nullProgressId_throwsBadRequest() throws Exception {
+    void submitProgress_correctAnswer_updatesUserPointsAndReturnsResponse() {
         var progressRepo = mock(pl.matgwiazda.repository.ProgressRepository.class);
         var userRepo = mock(pl.matgwiazda.repository.UserRepository.class);
+        var progressMapper = mock(ProgressMapper.class);
         var taskRepo = mock(pl.matgwiazda.repository.TaskRepository.class);
-        var txManager = mock(PlatformTransactionManager.class);
 
-        ProgressService svc = new ProgressService(progressRepo, userRepo, taskRepo, txManager);
+        ProgressService svc = new ProgressService(progressRepo, userRepo, progressMapper, taskRepo);
 
-        // Replace internal txTemplate with executor that directly invokes callback to avoid real transactions
-        TransactionTemplate tt = new TransactionTemplate(null) {
-            @Override
-            public <T> T execute(org.springframework.transaction.support.TransactionCallback<T> action) {
-                try {
-                    return action.doInTransaction(null);
-                } catch (RuntimeException e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-        Field f = ProgressService.class.getDeclaredField("txTemplate");
-        f.setAccessible(true);
-        f.set(svc, tt);
-
+        // Arrange existing progress with task and user
+        UUID progId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
+
+        User user = new User();
+        user.setId(userId);
+        user.setPoints(40);
+        user.setStars(0);
+        user.setCurrentLevel((short)1);
+
+        Task task = new Task();
+        task.setCorrectOptionIndex((short)1);
+        task.setExplanation("explanation");
+
+        Progress p = new Progress();
+        p.setId(progId);
+        p.setUser(user);
+        p.setTask(task);
+        p.setFinalized(false);
+
+        when(progressRepo.findByIdForUpdate(progId)).thenReturn(Optional.of(p));
+        when(progressRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
         ProgressSubmitCommand cmd = new ProgressSubmitCommand();
-        cmd.setProgressId(null); // invalid
+        cmd.setProgressId(progId);
         cmd.setSelectedOptionIndex((short)1);
+        cmd.setTimeTakenMs(123); // use Integer to match DTO signature
 
-        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> svc.submitProgress(userId, cmd));
-    }
+        var resp = svc.submitProgress(userId, cmd);
 
-    @Test
-    void determineCorrectness_privateMethod_behaviour() throws Exception {
-        var progressRepo = mock(pl.matgwiazda.repository.ProgressRepository.class);
-        var userRepo = mock(pl.matgwiazda.repository.UserRepository.class);
-        var taskRepo = mock(pl.matgwiazda.repository.TaskRepository.class);
-        var txManager = mock(PlatformTransactionManager.class);
+        // Assert
+        assertNotNull(resp);
+        assertTrue(resp.isCorrect());
+        assertEquals(10, resp.getPointsAwarded());
+        assertEquals(50, resp.getUserPoints());
+        assertEquals(user.getStars(), resp.getStarsAwarded());
+        assertFalse(resp.isLeveledUp());
+        assertEquals(user.getCurrentLevel(), resp.getNewLevel());
+        assertEquals("explanation", resp.getExplanation());
 
-        ProgressService svc = new ProgressService(progressRepo, userRepo, taskRepo, txManager);
-
-        Method m = ProgressService.class.getDeclaredMethod("determineCorrectness", Short.class, short.class);
-        m.setAccessible(true);
-
-        boolean correct = (boolean) m.invoke(svc, (short)2, (short)2);
-        assertTrue(correct);
-        boolean incorrect = (boolean) m.invoke(svc, (Short) null, (short)2);
-        assertFalse(incorrect);
+        verify(progressRepo).findByIdForUpdate(progId);
+        verify(progressRepo).save(any());
+        verify(userRepo).save(any());
     }
 
 }

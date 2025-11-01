@@ -46,6 +46,7 @@ class OpenRouterServiceTest {
     void generateTaskFromSeed_success_delegatesAndReturnsResult() {
         when(properties.getDefaultModel()).thenReturn("o-model");
         when(properties.getEndpoint()).thenReturn("/v1");
+        when(properties.getApiKey()).thenReturn("k");
         // lenient stub for serialization (may be unused in some code paths)
         try {
             lenient().when(objectMapper.writeValueAsString(any())).thenReturn("request-body");

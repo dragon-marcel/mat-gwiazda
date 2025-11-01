@@ -7,11 +7,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.web.server.ResponseStatusException;
 import pl.matgwiazda.domain.entity.LearningLevel;
 import pl.matgwiazda.dto.CreateLearningLevelCommand;
 import pl.matgwiazda.dto.UpdateLearningLevelCommand;
 import pl.matgwiazda.repository.LearningLevelRepository;
+import pl.matgwiazda.mapper.LearningLevelMapper;
+import pl.matgwiazda.dto.LearningLevelDto;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,10 +28,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class LearningLevelServiceTest {
 
     @Mock
     LearningLevelRepository repository;
+
+    @Mock
+    LearningLevelMapper mapper;
 
     @InjectMocks
     LearningLevelService service;
@@ -42,6 +50,20 @@ class LearningLevelServiceTest {
         sample.setDescription("Opis");
         sample.setCreatedAt(Instant.now());
         sample.setCreatedBy(UUID.randomUUID());
+
+        // default mapper behavior for tests: convert entity to DTO by reading fields
+        org.mockito.Mockito.lenient().when(mapper.toDto(any(LearningLevel.class))).thenAnswer(inv -> {
+            LearningLevel ll = inv.getArgument(0);
+            return new LearningLevelDto(
+                    ll.getLevel(),
+                    ll.getTitle(),
+                    ll.getDescription(),
+                    ll.getCreatedBy(),
+                    ll.getCreatedAt(),
+                    ll.getModifiedBy(),
+                    ll.getModifiedAt()
+            );
+        });
     }
 
     @Test

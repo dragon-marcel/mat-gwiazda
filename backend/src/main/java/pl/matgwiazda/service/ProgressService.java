@@ -14,6 +14,7 @@ import pl.matgwiazda.dto.ProgressSubmitResponseDto;
 import pl.matgwiazda.mapper.ProgressMapper;
 import pl.matgwiazda.repository.ProgressRepository;
 import pl.matgwiazda.repository.UserRepository;
+import pl.matgwiazda.repository.TaskRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +27,13 @@ public class ProgressService {
     private final ProgressRepository progressRepository;
     private final UserRepository userRepository;
     private final ProgressMapper progressMapper;
+    private final TaskRepository taskRepository;
 
-    public ProgressService(ProgressRepository progressRepository, UserRepository userRepository, ProgressMapper progressMapper) {
+    public ProgressService(ProgressRepository progressRepository, UserRepository userRepository, ProgressMapper progressMapper, TaskRepository taskRepository) {
         this.progressRepository = progressRepository;
         this.userRepository = userRepository;
         this.progressMapper = progressMapper;
+        this.taskRepository = taskRepository;
     }
 
     /**
@@ -112,12 +115,27 @@ public class ProgressService {
             User u = saved.getUser();
             int newPoints = u.getPoints() + saved.getPointsAwarded();
             u.setPoints(newPoints);
+            // clear active progress when finalized
+            u.setActiveProgressId(null);
             // leave stars/level logic simple for now (no level up)
             userRepository.save(u);
             userPoints = u.getPoints();
             starsAwarded = u.getStars();
             leveledUp = false;
             newLevel = u.getCurrentLevel();
+        }
+
+        // deactivate task so it won't be served again
+        if (saved.getTask() != null && saved.getTask().getId() != null) {
+            try {
+                Task t = taskRepository.findById(saved.getTask().getId()).orElse(null);
+                if (t != null && t.isActive()) {
+                    t.setActive(false);
+                    taskRepository.save(t);
+                }
+            } catch (Exception ignored) {
+                // avoid failing submit due to task save; log if needed in real app
+            }
         }
 
         String explanation = null;
