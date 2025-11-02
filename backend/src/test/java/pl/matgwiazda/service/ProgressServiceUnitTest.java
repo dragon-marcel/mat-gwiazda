@@ -51,7 +51,7 @@ class ProgressServiceUnitTest {
 
         Task task = new Task();
         task.setCorrectOptionIndex((short)1);
-        task.setExplanation("explanation test..");
+        task.setExplanation("explanation test...");
 
         Progress p = new Progress();
         p.setId(progId);
@@ -79,7 +79,7 @@ class ProgressServiceUnitTest {
         assertEquals(user.getStars(), resp.getStarsAwarded());
         assertFalse(resp.isLeveledUp());
         assertEquals(user.getCurrentLevel(), resp.getNewLevel());
-        assertEquals("explanation test..", resp.getExplanation());
+        assertEquals("explanation test...", resp.getExplanation());
 
         verify(progressRepo).findByIdForUpdate(progId);
         verify(progressRepo).save(any());
