@@ -59,20 +59,11 @@ jobs:
       - name: Inject JWT secret for backend tests (lint job)
         run: |
           mkdir -p backend/src/test/resources
-          if [ -n "$JWT_SECRET" ]; then
-            echo "Injecting JWT secret for CI (not printed)"
-            echo "jwt.secret=$JWT_SECRET" > backend/src/test/resources/application.properties
-          else
-            echo "No JWT_SECRET provided; skipping injection"
-          fi
-
-          # Inject OpenRouter API key if provided (do not print the key value)
-          if [ -n "$OPENROUTER_API_KEY" ]; then
-            echo "Injecting OpenRouter API key for CI (not printed)"
-            echo "openrouter.apiKey=$OPENROUTER_API_KEY" >> backend/src/test/resources/application.properties
-          else
-            echo "No OPENROUTER_API_KEY provided; skipping injection"
-          fi
+          # Always write jwt.secret and openrouter.apiKey into test properties.
+          # Use the secret if provided; otherwise fall back to safe non-sensitive defaults.
+          echo "Injecting test properties (jwt and openrouter api key)"
+          echo "jwt.secret=${JWT_SECRET:-change_this_jwt_secret_for_tests}" > backend/src/test/resources/application.properties
+          echo "openrouter.apiKey=${OPENROUTER_API_KEY:-dummy-test-key}" >> backend/src/test/resources/application.properties
 
       - name: Show backend test application.properties (masked)
         run: |
@@ -86,6 +77,10 @@ jobs:
                 len=$(printf "%s" "$val" | wc -c)
                 prefix=$(printf "%s" "$val" | cut -c1-6)
                 echo "jwt.secret=${prefix}... (len=${len})"
+              elif echo "$line" | grep -qE '^[[:space:]]*openrouter.apiKey='; then
+                val=$(echo "$line" | cut -d'=' -f2-)
+                len=$(printf "%s" "$val" | wc -c)
+                echo "openrouter.apiKey=*** (len=${len})"
               else
                 echo "$line"
               fi
@@ -224,20 +219,11 @@ jobs:
         working-directory: backend
         run: |
           mkdir -p src/test/resources
-          if [ -n "$JWT_SECRET" ]; then
-            echo "Injecting JWT secret for CI (not printed)"
-            echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
-          else
-            echo "No JWT_SECRET provided; skipping injection"
-          fi
-
-          # Inject OpenRouter API key if provided
-          if [ -n "$OPENROUTER_API_KEY" ]; then
-            echo "Injecting OpenRouter API key for CI (not printed)"
-            echo "openrouter.apiKey=$OPENROUTER_API_KEY" >> src/test/resources/application.properties
-          else
-            echo "No OPENROUTER_API_KEY provided; skipping injection"
-          fi
+          # Always write jwt.secret and openrouter.apiKey into test properties.
+          # Use the secret if provided; otherwise fall back to safe non-sensitive defaults.
+          echo "Injecting test properties (jwt and openrouter api key)"
+          echo "jwt.secret=${JWT_SECRET:-change_this_jwt_secret_for_tests}" > src/test/resources/application.properties
+          echo "openrouter.apiKey=${OPENROUTER_API_KEY:-dummy-test-key}" >> src/test/resources/application.properties
 
       - name: Show backend test application.properties (masked)
         working-directory: backend
@@ -252,6 +238,10 @@ jobs:
                 len=$(printf "%s" "$val" | wc -c)
                 prefix=$(printf "%s" "$val" | cut -c1-6)
                 echo "jwt.secret=${prefix}... (len=${len})"
+              elif echo "$line" | grep -qE '^[[:space:]]*openrouter.apiKey='; then
+                val=$(echo "$line" | cut -d'=' -f2-)
+                len=$(printf "%s" "$val" | wc -c)
+                echo "openrouter.apiKey=*** (len=${len})"
               else
                 echo "$line"
               fi
@@ -316,20 +306,11 @@ jobs:
         working-directory: backend
         run: |
           mkdir -p src/test/resources
-          if [ -n "$JWT_SECRET" ]; then
-            echo "Injecting JWT secret for CI (not printed)"
-            echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
-          else
-            echo "No JWT_SECRET provided; skipping injection"
-          fi
-
-          # Inject OpenRouter API key if provided
-          if [ -n "$OPENROUTER_API_KEY" ]; then
-            echo "Injecting OpenRouter API key for CI (not printed)"
-            echo "openrouter.apiKey=$OPENROUTER_API_KEY" >> src/test/resources/application.properties
-          else
-            echo "No OPENROUTER_API_KEY provided; skipping injection"
-          fi
+          # Always write jwt.secret and openrouter.apiKey into test properties.
+          # Use the secret if provided; otherwise fall back to safe non-sensitive defaults.
+          echo "Injecting test properties (jwt and openrouter api key)"
+          echo "jwt.secret=${JWT_SECRET:-change_this_jwt_secret_for_tests}" > src/test/resources/application.properties
+          echo "openrouter.apiKey=${OPENROUTER_API_KEY:-dummy-test-key}" >> src/test/resources/application.properties
 
       - name: Show backend test application.properties (masked)
         working-directory: backend
@@ -344,6 +325,10 @@ jobs:
                 len=$(printf "%s" "$val" | wc -c)
                 prefix=$(printf "%s" "$val" | cut -c1-6)
                 echo "jwt.secret=${prefix}... (len=${len})"
+              elif echo "$line" | grep -qE '^[[:space:]]*openrouter.apiKey='; then
+                val=$(echo "$line" | cut -d'=' -f2-)
+                len=$(printf "%s" "$val" | wc -c)
+                echo "openrouter.apiKey=*** (len=${len})"
               else
                 echo "$line"
               fi
