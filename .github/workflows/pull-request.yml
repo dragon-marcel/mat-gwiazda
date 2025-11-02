@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,6 +64,14 @@ jobs:
             echo "jwt.secret=$JWT_SECRET" > backend/src/test/resources/application.properties
           else
             echo "No JWT_SECRET provided; skipping injection"
+          fi
+
+          # Inject OpenRouter API key if provided (do not print the key value)
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            echo "Injecting OpenRouter API key for CI (not printed)"
+            echo "openrouter.apiKey=$OPENROUTER_API_KEY" >> backend/src/test/resources/application.properties
+          else
+            echo "No OPENROUTER_API_KEY provided; skipping injection"
           fi
 
       - name: Show backend test application.properties (masked)
@@ -187,6 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     needs: lint
     steps:
       - name: Checkout
@@ -219,6 +229,14 @@ jobs:
             echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
           else
             echo "No JWT_SECRET provided; skipping injection"
+          fi
+
+          # Inject OpenRouter API key if provided
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            echo "Injecting OpenRouter API key for CI (not printed)"
+            echo "openrouter.apiKey=$OPENROUTER_API_KEY" >> src/test/resources/application.properties
+          else
+            echo "No OPENROUTER_API_KEY provided; skipping injection"
           fi
 
       - name: Show backend test application.properties (masked)
@@ -270,6 +288,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     needs: lint
     steps:
       - name: Checkout
@@ -302,6 +321,14 @@ jobs:
             echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
           else
             echo "No JWT_SECRET provided; skipping injection"
+          fi
+
+          # Inject OpenRouter API key if provided
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            echo "Injecting OpenRouter API key for CI (not printed)"
+            echo "openrouter.apiKey=$OPENROUTER_API_KEY" >> src/test/resources/application.properties
+          else
+            echo "No OPENROUTER_API_KEY provided; skipping injection"
           fi
 
       - name: Show backend test application.properties (masked)
