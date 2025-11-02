@@ -37,8 +37,8 @@ jobs:
         working-directory: frontend
         run: npm run lint --if-present
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x backend/gradlew
+      - name: Make Gradle wrapper executable (if present)
+        run: chmod +x backend/gradlew || true
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -58,7 +58,7 @@ jobs:
 
       - name: Run backend lint / checks
         working-directory: backend
-        run: ./gradlew test --no-daemon --stacktrace
+        run: ./gradlew check -x test --no-daemon
 
   frontend-unit:
     name: Frontend Unit Tests (coverage)
@@ -217,10 +217,21 @@ jobs:
             echo "$FILE not found"
           fi
 
+      - name: Make Gradle wrapper executable (backend-unit)
+        working-directory: backend
+        run: chmod +x gradlew || true
+
       - name: Run backend unit tests
         working-directory: backend
         run: |
-          ./gradlew test jacocoTestReport --no-daemon
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew || true
+            ./gradlew test jacocoTestReport --no-daemon
+          else
+            echo "gradlew not found — installing system gradle"
+            sudo apt-get update && sudo apt-get install -y gradle
+            gradle test jacocoTestReport --no-daemon
+          fi
 
       - name: Upload backend unit test reports
         uses: actions/upload-artifact@v4
@@ -304,15 +315,30 @@ jobs:
             echo "$FILE not found"
           fi
 
+      - name: Make Gradle wrapper executable (backend-integration)
+        working-directory: backend
+        run: chmod +x gradlew || true
+
       - name: Run backend integration tests (if task exists)
         working-directory: backend
         run: |
-          if ./gradlew tasks --no-daemon | grep -q "integrationTest"; then
-            echo "Found integrationTest task, running it";
-            ./gradlew integrationTest jacocoTestReport --no-daemon;
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew || true
+            if ./gradlew tasks --no-daemon | grep -q "integrationTest"; then
+              echo "Found integrationTest task, running it";
+              ./gradlew integrationTest jacocoTestReport --no-daemon;
+            else
+              echo "No integrationTest task found, running check (may include integration tests if configured)";
+              ./gradlew check jacocoTestReport --no-daemon;
+            fi
           else
-            echo "No integrationTest task found, running check (may include integration tests if configured)";
-            ./gradlew check jacocoTestReport --no-daemon;
+            echo "gradlew not found — installing system gradle"
+            sudo apt-get update && sudo apt-get install -y gradle
+            if gradle tasks --no-daemon | grep -q "integrationTest"; then
+              echo "Found integrationTest task, running it";
+              gradle integrationTest jacocoTestReport --no-daemon;
+            else
+              echo "No integrationTest task found, running check (may include integration tests if configured)";
           fi
 
       - name: Upload backend integration test reports
