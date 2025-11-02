@@ -269,6 +269,8 @@ jobs:
               gradle integrationTest jacocoTestReport --no-daemon;
             else
               echo "No integrationTest task found, running check (may include integration tests if configured)";
+              gradle check jacocoTestReport --no-daemon;
+            fi
           fi
 
       - name: Upload backend integration test reports
