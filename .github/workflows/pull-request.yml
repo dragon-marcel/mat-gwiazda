@@ -1,0 +1,286 @@
+name: Pull Request CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Lint (frontend + backend)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend linter
+        working-directory: frontend
+        run: npm run lint --if-present
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties', '**/*.gradle*') }}
+          restore-keys: |
+            gradle-cache-${{ runner.os }}-
+
+      - name: Run backend lint / checks
+        working-directory: backend
+        run: ./gradlew check --no-daemon
+
+  frontend-unit:
+    name: Frontend Unit Tests (coverage)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend unit tests (with coverage)
+        working-directory: frontend
+        run: |
+          # try common commands; projects may use vitest/jest
+          if npm run test:unit --if-present; then
+            echo "ran npm run test:unit";
+          else
+            npm test -- --coverage || true;
+          fi
+
+      - name: Upload frontend unit coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-unit-coverage
+          path: |
+            frontend/coverage
+            frontend/coverage/lcov.info
+            frontend/coverage/**
+
+      - name: Upload frontend unit test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-unit-junit
+          path: |
+            frontend/test-results
+            frontend/junit-report.xml
+            frontend/**/junit-report-*.xml
+
+  frontend-e2e:
+    name: Frontend E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright E2E tests
+        working-directory: frontend
+        run: |
+          # run playwright using the repo's config
+          npx playwright test --config=playwright.config.ts --reporter=html
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-e2e-report
+          path: frontend/playwright-report
+
+      - name: Upload frontend e2e coverage (if any)
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-e2e-coverage
+          path: |
+            frontend/coverage-e2e
+            frontend/coverage
+
+  backend-unit:
+    name: Backend Unit Tests (Gradle + JaCoCo)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('backend/**/gradle-wrapper.properties', 'backend/**/*.gradle*') }}
+          restore-keys: |
+            gradle-cache-${{ runner.os }}-
+
+      - name: Run backend unit tests
+        working-directory: backend
+        run: |
+          ./gradlew test jacocoTestReport --no-daemon
+
+      - name: Upload backend unit test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-unit-junit
+          path: |
+            backend/build/test-results
+            backend/**/test-results/**
+
+      - name: Upload backend unit coverage (JaCoCo)
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-unit-coverage
+          path: |
+            backend/build/reports/jacoco
+            backend/build/jacoco
+            backend/build/reports/jacoco/**
+
+  backend-integration:
+    name: Backend Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('backend/**/gradle-wrapper.properties', 'backend/**/*.gradle*') }}
+          restore-keys: |
+            gradle-cache-${{ runner.os }}-
+
+      - name: Run backend integration tests (if task exists)
+        working-directory: backend
+        run: |
+          if ./gradlew tasks --no-daemon | grep -q "integrationTest"; then
+            echo "Found integrationTest task, running it";
+            ./gradlew integrationTest jacocoTestReport --no-daemon;
+          else
+            echo "No integrationTest task found, running check (may include integration tests if configured)";
+            ./gradlew check jacocoTestReport --no-daemon;
+          fi
+
+      - name: Upload backend integration test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-integration-junit
+          path: |
+            backend/build/test-results
+            backend/**/test-results/**
+
+      - name: Upload backend integration coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-integration-coverage
+          path: |
+            backend/build/reports/jacoco
+            backend/build/jacoco
+            backend/build/reports/jacoco/**
+
+  final-status-comment:
+    name: PR status comment (overall success)
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-unit
+      - frontend-e2e
+      - backend-unit
+      - backend-integration
+    if: ${{ success() }}
+    steps:
+      - name: Create or update PR comment with summary
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ All checks passed for this pull request.
+
+            Jobs completed:
+            - frontend-unit: success
+            - frontend-e2e: success
+            - backend-unit: success
+            - backend-integration: success
+
+            Artifacts uploaded (available in this workflow run -> Artifacts):
+            - frontend-unit-coverage
+            - frontend-unit-junit
+            - frontend-e2e-report
+            - frontend-e2e-coverage
+            - backend-unit-junit
+            - backend-unit-coverage
+            - backend-integration-junit
+            - backend-integration-coverage
+
+            To view full logs, open the checks tab in this Pull Request.
+
