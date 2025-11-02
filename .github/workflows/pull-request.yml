@@ -13,6 +13,8 @@ jobs:
   lint:
     name: Lint (frontend + backend)
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,10 +56,14 @@ jobs:
             gradle-cache-${{ runner.os }}-
 
       - name: Inject JWT secret for backend tests (lint job)
-        if: ${{ secrets.JWT_SECRET != '' }}
         run: |
           mkdir -p backend/src/test/resources
-          echo "jwt.secret=${{ secrets.JWT_SECRET }}" > backend/src/test/resources/application.properties
+          if [ -n "$JWT_SECRET" ]; then
+            echo "Injecting JWT secret for CI (not printed)"
+            echo "jwt.secret=$JWT_SECRET" > backend/src/test/resources/application.properties
+          else
+            echo "No JWT_SECRET provided; skipping injection"
+          fi
 
       - name: Run backend lint / checks
         working-directory: backend
@@ -158,6 +164,8 @@ jobs:
   backend-unit:
     name: Backend Unit Tests (Gradle + JaCoCo)
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
     needs: lint
     steps:
       - name: Checkout
@@ -182,11 +190,15 @@ jobs:
             gradle-cache-${{ runner.os }}-
 
       - name: Inject JWT secret for backend unit tests
-        if: ${{ secrets.JWT_SECRET != '' }}
         working-directory: backend
         run: |
           mkdir -p src/test/resources
-          echo "jwt.secret=${{ secrets.JWT_SECRET }}" > src/test/resources/application.properties
+          if [ -n "$JWT_SECRET" ]; then
+            echo "Injecting JWT secret for CI (not printed)"
+            echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
+          else
+            echo "No JWT_SECRET provided; skipping injection"
+          fi
 
       - name: Run backend unit tests
         working-directory: backend
@@ -213,6 +225,8 @@ jobs:
   backend-integration:
     name: Backend Integration Tests
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
     needs: lint
     steps:
       - name: Checkout
@@ -237,11 +251,15 @@ jobs:
             gradle-cache-${{ runner.os }}-
 
       - name: Inject JWT secret for backend integration tests
-        if: ${{ secrets.JWT_SECRET != '' }}
         working-directory: backend
         run: |
           mkdir -p src/test/resources
-          echo "jwt.secret=${{ secrets.JWT_SECRET }}" > src/test/resources/application.properties
+          if [ -n "$JWT_SECRET" ]; then
+            echo "Injecting JWT secret for CI (not printed)"
+            echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
+          else
+            echo "No JWT_SECRET provided; skipping injection"
+          fi
 
       - name: Run backend integration tests (if task exists)
         working-directory: backend
