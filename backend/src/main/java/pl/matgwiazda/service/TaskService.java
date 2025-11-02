@@ -131,8 +131,19 @@ public class TaskService {
         if (user.getActiveProgressId() == null) return Optional.empty();
         Optional<Progress> existingProgress = progressRepository.findById(user.getActiveProgressId());
         if (existingProgress.isPresent()) {
-            Task existingTask = existingProgress.get().getTask();
-            return Optional.of(new TaskWithProgressDto(taskMapper.toDto(existingTask), existingProgress.get().getId()));
+            Progress p = existingProgress.get();
+            // If the progress was already finalized, clear the user's activeProgressId so a new task will be generated
+            if (p.isFinalized()) {
+                user.setActiveProgressId(null);
+                try {
+                    userRepository.save(user);
+                } catch (Exception ex) {
+                    // don't fail generation due to user save error; log if needed
+                }
+                return Optional.empty();
+            }
+            Task existingTask = p.getTask();
+            return Optional.of(new TaskWithProgressDto(taskMapper.toDto(existingTask), p.getId()));
         }
         return Optional.empty();
     }
