@@ -65,6 +65,27 @@ jobs:
             echo "No JWT_SECRET provided; skipping injection"
           fi
 
+      - name: Show backend test application.properties (masked)
+        run: |
+          FILE=backend/src/test/resources/application.properties
+          if [ -f "$FILE" ]; then
+            echo "Found $FILE"
+            echo "--- masked contents ---"
+            while IFS= read -r line; do
+              if echo "$line" | grep -qE '^[[:space:]]*jwt.secret='; then
+                val=$(echo "$line" | cut -d'=' -f2-)
+                len=$(printf "%s" "$val" | wc -c)
+                prefix=$(printf "%s" "$val" | cut -c1-6)
+                echo "jwt.secret=${prefix}... (len=${len})"
+              else
+                echo "$line"
+              fi
+            done < "$FILE"
+            echo "--- end ---"
+          else
+            echo "$FILE not found"
+          fi
+
       - name: Run backend lint / checks
         working-directory: backend
         run: ./gradlew check --no-daemon
@@ -200,6 +221,28 @@ jobs:
             echo "No JWT_SECRET provided; skipping injection"
           fi
 
+      - name: Show backend test application.properties (masked)
+        working-directory: backend
+        run: |
+          FILE=src/test/resources/application.properties
+          if [ -f "$FILE" ]; then
+            echo "Found $FILE"
+            echo "--- masked contents ---"
+            while IFS= read -r line; do
+              if echo "$line" | grep -qE '^[[:space:]]*jwt.secret='; then
+                val=$(echo "$line" | cut -d'=' -f2-)
+                len=$(printf "%s" "$val" | wc -c)
+                prefix=$(printf "%s" "$val" | cut -c1-6)
+                echo "jwt.secret=${prefix}... (len=${len})"
+              else
+                echo "$line"
+              fi
+            done < "$FILE"
+            echo "--- end ---"
+          else
+            echo "$FILE not found"
+          fi
+
       - name: Run backend unit tests
         working-directory: backend
         run: |
@@ -259,6 +302,28 @@ jobs:
             echo "jwt.secret=$JWT_SECRET" > src/test/resources/application.properties
           else
             echo "No JWT_SECRET provided; skipping injection"
+          fi
+
+      - name: Show backend test application.properties (masked)
+        working-directory: backend
+        run: |
+          FILE=src/test/resources/application.properties
+          if [ -f "$FILE" ]; then
+            echo "Found $FILE"
+            echo "--- masked contents ---"
+            while IFS= read -r line; do
+              if echo "$line" | grep -qE '^[[:space:]]*jwt.secret='; then
+                val=$(echo "$line" | cut -d'=' -f2-)
+                len=$(printf "%s" "$val" | wc -c)
+                prefix=$(printf "%s" "$val" | cut -c1-6)
+                echo "jwt.secret=${prefix}... (len=${len})"
+              else
+                echo "$line"
+              fi
+            done < "$FILE"
+            echo "--- end ---"
+          else
+            echo "$FILE not found"
           fi
 
       - name: Run backend integration tests (if task exists)
