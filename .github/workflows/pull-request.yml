@@ -53,6 +53,12 @@ jobs:
           restore-keys: |
             gradle-cache-${{ runner.os }}-
 
+      - name: Inject JWT secret for backend tests (lint job)
+        if: ${{ secrets.JWT_SECRET != '' }}
+        run: |
+          mkdir -p backend/src/test/resources
+          echo "jwt.secret=${{ secrets.JWT_SECRET }}" > backend/src/test/resources/application.properties
+
       - name: Run backend lint / checks
         working-directory: backend
         run: ./gradlew check --no-daemon
@@ -175,6 +181,13 @@ jobs:
           restore-keys: |
             gradle-cache-${{ runner.os }}-
 
+      - name: Inject JWT secret for backend unit tests
+        if: ${{ secrets.JWT_SECRET != '' }}
+        working-directory: backend
+        run: |
+          mkdir -p src/test/resources
+          echo "jwt.secret=${{ secrets.JWT_SECRET }}" > src/test/resources/application.properties
+
       - name: Run backend unit tests
         working-directory: backend
         run: |
@@ -222,6 +235,13 @@ jobs:
           key: gradle-cache-${{ runner.os }}-${{ hashFiles('backend/**/gradle-wrapper.properties', 'backend/**/*.gradle*') }}
           restore-keys: |
             gradle-cache-${{ runner.os }}-
+
+      - name: Inject JWT secret for backend integration tests
+        if: ${{ secrets.JWT_SECRET != '' }}
+        working-directory: backend
+        run: |
+          mkdir -p src/test/resources
+          echo "jwt.secret=${{ secrets.JWT_SECRET }}" > src/test/resources/application.properties
 
       - name: Run backend integration tests (if task exists)
         working-directory: backend
@@ -287,4 +307,3 @@ jobs:
             - backend-integration-coverage
 
             To view full logs, open the checks tab in this Pull Request.
-
