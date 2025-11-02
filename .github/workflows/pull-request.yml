@@ -56,40 +56,6 @@ jobs:
           restore-keys: |
             gradle-cache-${{ runner.os }}-
 
-      - name: Inject JWT secret for backend tests (lint job)
-        run: |
-          mkdir -p backend/src/test/resources
-          # Always write jwt.secret and openrouter.apiKey into test properties.
-          # Use the secret if provided; otherwise fall back to safe non-sensitive defaults.
-          echo "Injecting test properties (jwt and openrouter api key)"
-          echo "jwt.secret=${JWT_SECRET:-change_this_jwt_secret_for_tests}" > backend/src/test/resources/application.properties
-          echo "openrouter.apiKey=${OPENROUTER_API_KEY:-dummy-test-key}" >> backend/src/test/resources/application.properties
-
-      - name: Show backend test application.properties (masked)
-        run: |
-          FILE=backend/src/test/resources/application.properties
-          if [ -f "$FILE" ]; then
-            echo "Found $FILE"
-            echo "--- masked contents ---"
-            while IFS= read -r line; do
-              if echo "$line" | grep -qE '^[[:space:]]*jwt.secret='; then
-                val=$(echo "$line" | cut -d'=' -f2-)
-                len=$(printf "%s" "$val" | wc -c)
-                prefix=$(printf "%s" "$val" | cut -c1-6)
-                echo "jwt.secret=${prefix}... (len=${len})"
-              elif echo "$line" | grep -qE '^[[:space:]]*openrouter.apiKey='; then
-                val=$(echo "$line" | cut -d'=' -f2-)
-                len=$(printf "%s" "$val" | wc -c)
-                echo "openrouter.apiKey=*** (len=${len})"
-              else
-                echo "$line"
-              fi
-            done < "$FILE"
-            echo "--- end ---"
-          else
-            echo "$FILE not found"
-          fi
-
       - name: Run backend lint / checks
         working-directory: backend
         run: ./gradlew test --no-daemon --stacktrace
