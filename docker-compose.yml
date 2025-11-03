@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mat-gwiazda-backend
+    restart: unless-stopped
+    # Load env variables from .env into the container (convenient for local dev)
+    env_file:
+      - .env
+    environment:
+      # Connect to Supabase running on the host (supabase start)
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:54322/postgres"
+      # Secrets: provide these via environment or .env file
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+      JWT_SECRET: "${JWT_SECRET}"
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mat-gwiazda-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:5174"
+    depends_on:
+      - backend

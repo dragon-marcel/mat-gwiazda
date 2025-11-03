@@ -43,6 +43,15 @@
 
 ---
 
+## 🐳 Docker i uruchamianie lokalne
+Projekt zawiera obsługę dockera dla obu warstw (backend i frontend) oraz przykładowy plik `docker-compose.yml` do uruchomienia całego stacku lokalnie.
+
+Co jest w repozytorium:
+- `backend/Dockerfile` — multi-stage build wykorzystujący JDK 17 / Gradle, tworzy fat-JAR i uruchamia aplikację jako proces Java.
+- `frontend/Dockerfile` — multi-stage build (Node 18) który buduje statyczne pliki i serwuje je przez `nginx` (konfiguracja w `frontend/nginx.conf`).
+- `docker-compose.yml` — buduje i uruchamia usługi `backend` i `frontend`; można go skonfigurować do użycia lokalnej instancji Supabase (host) albo włączenia usługi DB w compose.
+- `.env.example` / `.env` — plik z sekretami do lokalnego developmentu (OPENROUTER_API_KEY, JWT_SECRET, połączenie do DB itp.).
+
 ## 🔬 Testowanie
 - Testy jednostkowe:
   - Backend: JUnit 5 + Mockito, Spring Boot Test; użycie Testcontainers (PostgreSQL) dla testów zależnych od bazy danych.

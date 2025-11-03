@@ -53,7 +53,8 @@ Prerequisites:
 - Java 17 or later
 - Node.js (18+) and npm (or pnpm)
 - Git
-- (Optional) Docker, if you prefer containerized services
+- Docker & Docker Compose (recommended for containerized run)
+- (Optional) Supabase CLI if you run Supabase locally
 
 1. Clone the repository
 
@@ -62,7 +63,7 @@ git clone https://github.com/<your-org-or-username>/mat-gwiazda.git
 cd mat-gwiazda
 ```
 
-2. Backend (Spring Boot)
+### Backend (Spring Boot)
 
 - Configure environment variables (example):
   - `SPRING_PROFILES_ACTIVE` (optional)
@@ -90,9 +91,9 @@ gradlew.bat bootRun
 ./gradlew build
 ```
 
-3. Frontend (Astro + React)
+### Frontend (Astro + React)
 
-- Navigate to the frontend directory (if present):
+- Navigate to the frontend directory:
 
 ```bash
 cd frontend
@@ -116,9 +117,92 @@ npm run dev
 npm run build
 ```
 
-Notes:
-- The repository uses Supabase for data and auth in the planned architecture. If you run locally with Supabase, provide connection details via env variables or a local configuration file.
-- Provide your AI service key as an environment variable (e.g., `OPENROUTER_API_KEY`) and ensure backend code reads it securely.
+### Running with Docker (recommended for local full-stack testing)
+This project includes Dockerfiles for both services and a `docker-compose.yml` at the repository root:
+
+- `backend/Dockerfile` — builds the Spring Boot backend (multi-stage Gradle build) and produces a runnable JAR image.
+- `frontend/Dockerfile` — builds the Astro/Vite frontend (Node 18) and serves the static build with nginx on port 5174.
+- `docker-compose.yml` — builds and runs `backend` and `frontend`. The compose file is configured to read secrets from a local `.env` file.
+
+Quick start (assumes you run Supabase locally on the host):
+
+1. Create and populate `.env` in the repository root. You can copy the example file:
+
+```cmd
+copy .env.example .env
+```
+
+Open `.env` and set at least:
+```
+OPENROUTER_API_KEY=your_openrouter_api_key
+JWT_SECRET=your_jwt_secret
+SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:54322/postgres
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+```
+
+2. Start local Supabase (if you use Supabase locally):
+
+```cmd
+supabase start
+```
+
+Make sure the Postgres instance is listening on port `54322`. You can test with:
+
+```bash
+pg_isready -h localhost -p 54322 -U postgres
+# or using dockerized psql:
+# docker run --rm postgres:15-alpine sh -c "pg_isready -h host.docker.internal -p 54322 -U postgres"
+```
+
+3. Apply database migration scripts
+
+This project expects SQL migration scripts to be applied to your Supabase/Postgres instance. By convention they are located in `./db` (project root) — if you don't have a `db/` folder at the repo root, check `./backend/db`.
+
+You can apply migrations in multiple ways:
+
+- Using `psql` (if you have the client installed):
+
+```bash
+psql "host=localhost port=54322 user=postgres dbname=postgres" -f db/init.sql
+```
+
+- Using a dockerized psql client (cross-platform):
+
+```cmd
+# from repo root (Windows cmd example)
+docker run --rm -v "%CD%/db:/db" postgres:15-alpine sh -c "psql -h host.docker.internal -p 54322 -U postgres -d postgres -f /db/init.sql"
+```
+
+- If you use Supabase migrations or the Supabase CLI migration workflow, use the Supabase commands (e.g. `supabase db push` / `supabase migrations deploy`) according to your project setup.
+
+4. Build and start the services with Docker Compose:
+
+```cmd
+docker compose up -d --build
+```
+
+This will build `backend` and `frontend` images and run them. After startup:
+- Backend: http://localhost:8080
+- Frontend: http://localhost:5174
+
+Notes about networking
+- The backend container connects to the host Supabase using `host.docker.internal:54322` (this is the default in the provided compose file). This requires Docker Desktop / WSL2 on Windows or equivalent support for `host.docker.internal`.
+- Frontend Nginx is configured in `frontend/nginx.conf` to proxy `/api/` requests to `http://backend:8080` when both services run in Docker Compose, so frontend API calls will reach the backend without CORS issues.
+
+### Running single containers (optional)
+You can run a single service image and pass secrets via an env file:
+
+```cmd
+# build backend image
+docker build -t mat-gwiazda-backend:local ./backend
+# run with .env
+docker run --rm --env-file .env -p 8080:8080 mat-gwiazda-backend:local
+```
+
+### .env and secrets
+- A `.env.example` is provided. Copy it to `.env` and fill in the real values before starting with Docker Compose.
+- For local development `.env` is acceptable but **do not commit** it to the repository. For production use a secrets manager (Docker Secrets, Vault, or cloud provider secrets).
 
 <a name="available-scripts"></a>
 ## Available Scripts
