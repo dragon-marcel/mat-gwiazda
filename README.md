@@ -2,6 +2,7 @@
 
 ## Table of Contents
 - Project Description
+- User Stories
 - Tech Stack
 - Getting Started Locally
 - Available Scripts
@@ -28,7 +29,17 @@ Key goals:
 - Increase engagement through adaptive tasks and gamification.
 - Provide immediate feedback and real-time progress tracking.
 
-<a name="tech-stack"></a>
+## 5. User Stories
+
+- US-001: Registration & Login — Users can create an account and log in to secure their data and progress.
+- US-002: Automatic Task Generation — The system generates level-appropriate math tasks (4 options, 1 correct) and records an in-progress `progress` entry per user.
+- US-003: Points & Stars System — Users earn points for correct answers; accumulating points grants stars and level advancement.
+- US-004: Solving Tasks — Users can attempt tasks, select an answer, and receive immediate feedback.
+- US-005: Progress Overview — Users can view summary statistics about completed tasks, points and stars.
+- US-006: Review Completed Tasks — Users can browse completed tasks with basic result details and explanations.
+- US-007: Edit Username & Password — Users can update their display name and password in account settings.
+- US-008: Level Management (admin) — Admins can add, edit, and remove levels and their prompts.
+
 ## Tech Stack
 - Frontend: Astro + React 19, Tailwind CSS
 - Backend: Java 17+ with Spring Boot (version referenced in Gradle: 3.5.6)
@@ -36,18 +47,17 @@ Key goals:
 - AI: Integration with openrouter.ai (or another AI endpoint) for dynamic task generation
 - CI/CD & Hosting: GitHub Actions (recommended), hosting on DigitalOcean (recommended)
 
-### Testowanie
-- Testy jednostkowe:
-  - Backend: JUnit 5, Mockito oraz Spring Boot Test (zalecane użycie Testcontainers dla testów zależnych od bazy danych).
-  - Frontend: Vitest + React Testing Library; MSW (Mock Service Worker) do mockowania API w testach jednostkowych i integracyjnych.
-- Testy E2E:
-  - Playwright (zalecany) — automatyzacja scenariuszy użytkownika, integracja z axe-core dla testów dostępności.
-  - Alternatywa: Cypress.
-- Narzędzia uzupełniające:
-  - REST-assured lub Postman/Newman do testów kontraktów/endpointów backendu.
-  - WireMock do stubowania zewnętrznych serwisów (np. openrouter.ai) w testach integracyjnych.
+### Testing
+- Unit tests:
+  - Backend: JUnit 5, Mockito and Spring Boot Test (recommended to use Testcontainers for database-dependent tests).
+  - Frontend: Vitest + React Testing Library; MSW (Mock Service Worker) for mocking APIs in unit and integration tests.
+- E2E tests:
+  - Playwright (recommended) — automate user scenarios; integrate with axe-core for accessibility testing.
+  - Alternative: Cypress.
+- Supplementary tools:
+  - REST-assured or Postman/Newman for contract/endpoint tests.
+  - WireMock for stubbing external services (e.g., openrouter.ai) in integration tests.
 
-<a name="getting-started-locally"></a>
 ## Getting Started Locally
 Prerequisites:
 - Java 17 or later
@@ -55,67 +65,6 @@ Prerequisites:
 - Git
 - Docker & Docker Compose (recommended for containerized run)
 - (Optional) Supabase CLI if you run Supabase locally
-
-1. Clone the repository
-
-```bash
-git clone https://github.com/<your-org-or-username>/mat-gwiazda.git
-cd mat-gwiazda
-```
-
-### Backend (Spring Boot)
-
-- Configure environment variables (example):
-  - `SPRING_PROFILES_ACTIVE` (optional)
-  - `SPRING_DATASOURCE_URL` (if using your own Postgres)
-  - `SPRING_DATASOURCE_USERNAME`
-  - `SPRING_DATASOURCE_PASSWORD`
-  - `SUPABASE_URL` and `SUPABASE_KEY` (if using Supabase)
-  - `OPENROUTER_API_KEY` (or other AI service key)
-
-- Run using the Gradle wrapper (Linux/macOS):
-
-```bash
-./gradlew bootRun
-```
-
-- Run on Windows (cmd.exe / PowerShell):
-
-```cmd
-gradlew.bat bootRun
-```
-
-- Build jar:
-
-```bash
-./gradlew build
-```
-
-### Frontend (Astro + React)
-
-- Navigate to the frontend directory:
-
-```bash
-cd frontend
-```
-
-- Install dependencies:
-
-```bash
-npm install
-```
-
-- Start development server:
-
-```bash
-npm run dev
-```
-
-- Build for production:
-
-```bash
-npm run build
-```
 
 ### Running with Docker (recommended for local full-stack testing)
 This project includes Dockerfiles for both services and a `docker-compose.yml` at the repository root:
@@ -126,11 +75,7 @@ This project includes Dockerfiles for both services and a `docker-compose.yml` a
 
 Quick start (assumes you run Supabase locally on the host):
 
-1. Create and populate `.env` in the repository root. You can copy the example file:
-
-```cmd
-copy .env.example .env
-```
+1. Create and populate `.env` in the repository root:
 
 Open `.env` and set at least:
 ```
@@ -143,41 +88,15 @@ SPRING_DATASOURCE_PASSWORD=postgres
 
 2. Start local Supabase (if you use Supabase locally):
 
+Open a new terminal and change into the `db` folder (this folder should contain your migration scripts, e.g. `db/migration`).
+Then start the local Supabase services and apply migrations. Finally return to the repository root and start the Docker services:
+
 ```cmd
 supabase start
+supabase migration up
 ```
 
-Make sure the Postgres instance is listening on port `54322`. You can test with:
-
-```bash
-pg_isready -h localhost -p 54322 -U postgres
-# or using dockerized psql:
-# docker run --rm postgres:15-alpine sh -c "pg_isready -h host.docker.internal -p 54322 -U postgres"
-```
-
-3. Apply database migration scripts
-
-This project expects SQL migration scripts to be applied to your Supabase/Postgres instance. By convention they are located in `./db` (project root) — if you don't have a `db/` folder at the repo root, check `./backend/db`.
-
-You can apply migrations in multiple ways:
-
-- Using `psql` (if you have the client installed):
-
-```bash
-psql "host=localhost port=54322 user=postgres dbname=postgres" -f db/init.sql
-```
-
-- Using a dockerized psql client (cross-platform):
-
-```cmd
-# from repo root (Windows cmd example)
-docker run --rm -v "%CD%/db:/db" postgres:15-alpine sh -c "psql -h host.docker.internal -p 54322 -U postgres -d postgres -f /db/init.sql"
-```
-
-- If you use Supabase migrations or the Supabase CLI migration workflow, use the Supabase commands (e.g. `supabase db push` / `supabase migrations deploy`) according to your project setup.
-
-4. Build and start the services with Docker Compose:
-
+3. From the repository root, run Docker Compose:
 ```cmd
 docker compose up -d --build
 ```

@@ -85,6 +85,29 @@ Dlaczego tak?
     - Profil użytkownika wyświetla liczbę zdobytych punktów i gwiazdek.
     - System generuje statystyki dotyczące czasu spędzonego w aplikacji oraz ukończonych zadań.
     - Dane są aktualizowane w czasie rzeczywistym.
+  
+### US-006
+- Tytuł: Przegląd ukończonych zadań
+- Opis: Użytkownik może przeglądać listę ukończonych zadań z informacjami: ile punktów zdobył, jaka odpowiedź została udzielona, czy była poprawna oraz krótkie wyjaśnienie.
+- Kryteria akceptacji:
+    - Sekcja „Historia” wyświetla listę ukończonych zadań z datą i czasem.
+    - Dla każdego zadania pokazane: treść zadania, wybrana odpowiedź, poprawna odpowiedź, liczba punktów przyznanych oraz wyjaśnienie.
+    - Możliwość filtrowania i sortowania po poprawności oraz dacie.
+
+### US-007
+- Tytuł: Edycja nazwy użytkownika i hasła
+- Opis: Użytkownik może zmienić swoją nazwę wyświetlaną oraz hasło w ustawieniach konta.
+- Kryteria akceptacji:
+    - Formularz profilu umożliwia zmianę nazwy wyświetlanej oraz hasła.
+    - Walidacja hasła (np. min. 8 znaków) i wyświetlenie błędów walidacyjnych klientowi.
+
+### US-008
+- Tytuł: Zarządzanie poziomami (admin)
+- Opis: Administrator może dodawać nowe poziomy, edytować opis/prompt danego poziomu oraz usuwać poziomy.
+- Kryteria akceptacji:
+    - Panel administracyjny umożliwia: tworzenie poziomu (numer, nazwa, prompt), edycję prompta i opisu oraz usunięcie poziomu.
+    - Backend weryfikuje uprawnienia admina przed wykonaniem operacji.
+    - Usunięcie poziomu wymaga potwierdzenia.
 
 ## 6. Metryki sukcesu
 - 80% zadań generowanych przez AI musi być uznawanych za odpowiednie przez rodziców lub nauczycieli.
