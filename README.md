@@ -97,6 +97,8 @@ Then start the local Supabase services and apply migrations. Finally return to t
 supabase start
 supabase migration up
 ```
+After running Supabase migration scripts, it may be necessary to temporarily disable Row Level Security (RLS) on tables that will be modified.
+Disabling RLS makes it easier to perform bulk DDL/DML changes without being blocked by RLS policies.
 
 3. From the repository root, run Docker Compose:
 ```cmd
