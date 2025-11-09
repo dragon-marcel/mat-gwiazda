@@ -12,7 +12,7 @@ public class OpenRouterProperties {
 
     private String apiKey;
     private String endpoint = "https://openrouter.ai/api/v1/chat/completions";
-    private String defaultModel = "google/gemini-2.0-flash-exp:free"; // user requested free model
+    private String defaultModel = "nvidia/nemotron-nano-12b-v2-vl:free"; // user requested free model
     private int timeoutMs = 30000;
     private int maxRetries = 1;
     private int backoffBaseMs = 500;

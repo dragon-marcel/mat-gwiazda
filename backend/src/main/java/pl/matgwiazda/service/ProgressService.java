@@ -100,30 +100,14 @@ public class ProgressService {
         p.setCorrect(correct);
         p.setFinalized(true);
 
-        // Simple points awarding policy: 10 points for correct, 0 otherwise
-        int points = correct ? 10 : 0;
+        // Simple points awarding policy: 1 points for correct, 0 otherwise
+        int points = correct ? 1 : 0;
         p.setPointsAwarded(points);
 
         Progress saved = progressRepository.save(p);
 
         // Update user points if present
-        int userPoints = 0;
-        int starsAwarded = 0;
-        boolean leveledUp = false;
-        short newLevel = 0;
-        if (saved.getUser() != null) {
-            User u = saved.getUser();
-            int newPoints = u.getPoints() + saved.getPointsAwarded();
-            u.setPoints(newPoints);
-            // clear active progress when finalized
-            u.setActiveProgressId(null);
-            // leave stars/level logic simple for now (no level up)
-            userRepository.save(u);
-            userPoints = u.getPoints();
-            starsAwarded = u.getStars();
-            leveledUp = false;
-            newLevel = u.getCurrentLevel();
-        }
+        int levelUp = updateUserStatsAndReturnLevelsGained(saved.getUser(), points);
 
         // deactivate task so it won't be served again
         if (saved.getTask() != null && saved.getTask().getId() != null) {
@@ -141,9 +125,22 @@ public class ProgressService {
         String explanation = null;
         if (saved.getTask() != null) explanation = saved.getTask().getExplanation();
 
-        return new ProgressSubmitResponseDto(saved.getId(), saved.isCorrect(), saved.getPointsAwarded(), userPoints, starsAwarded, leveledUp, newLevel, explanation);
+        return new ProgressSubmitResponseDto(saved.getId(), saved.isCorrect(), saved.getPointsAwarded(), saved.getUser().getPoints(),
+                saved.getUser().getStars() + levelUp, levelUp > 0, saved.getUser().getCurrentLevel(), explanation);
     }
 
+    private int updateUserStatsAndReturnLevelsGained(User user, int pointsAwarded) {
+        int newUserPoints = user.getPoints() + pointsAwarded;
+        int previousThresholdCount = user.getPoints() / 50;
+        int newThresholdCount = newUserPoints / 50;
+        int levelsGained = Math.max(0, newThresholdCount - previousThresholdCount);
+        user.setActiveProgressId(null);
+        user.setPoints(newUserPoints);
+        user.setStars(user.getStars() + levelsGained);
+        user.setCurrentLevel((short) (user.getCurrentLevel() + levelsGained));
+        userRepository.save(user);
+        return levelsGained;
+    }
     /**
      * List all progress entries for a user (non-paged). Returns DTOs mapped with ProgressMapper.
      */
@@ -157,3 +154,4 @@ public class ProgressService {
         return out;
     }
 }
+

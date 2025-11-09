@@ -74,8 +74,8 @@ class ProgressServiceUnitTest {
         // Assert
         assertNotNull(resp);
         assertTrue(resp.isCorrect());
-        assertEquals(10, resp.getPointsAwarded());
-        assertEquals(50, resp.getUserPoints());
+        assertEquals(1, resp.getPointsAwarded());
+        assertEquals(41, resp.getUserPoints());
         assertEquals(user.getStars(), resp.getStarsAwarded());
         assertFalse(resp.isLeveledUp());
         assertEquals(user.getCurrentLevel(), resp.getNewLevel());
