@@ -16,6 +16,8 @@ MatGwiazda is an interactive web application designed to help students in grades
 The app generates level-appropriate math problems (multiple choice with four options and one correct answer), provides short explanations,
 awards points for correct answers, and grants "stars" (level-ups) after accumulating points.
 
+![s](https://raw.githubusercontent.com/dragon-marcel/mat-gwiazda/refs/heads/main/matGwiazda-demo.gif)
+
 Level 1: Addition and subtraction within 100, comparing numbers, simple word problems.
 - Level 2: Multiplication and division within 100, simple fractions.
 - Level 3: Operations up to 1000, multiplication tables, division with remainders, fractions, units of measure (length, mass, time).
@@ -109,50 +111,6 @@ Notes about networking
 - The backend container connects to the host Supabase using `host.docker.internal:54322` (this is the default in the provided compose file). This requires Docker Desktop / WSL2 on Windows or equivalent support for `host.docker.internal`.
 - Frontend Nginx is configured in `frontend/nginx.conf` to proxy `/api/` requests to `http://backend:8080` when both services run in Docker Compose, so frontend API calls will reach the backend without CORS issues.
 
-### Running single containers (optional)
-You can run a single service image and pass secrets via an env file:
-
-```cmd
-# build backend image
-docker build -t mat-gwiazda-backend:local ./backend
-# run with .env
-docker run --rm --env-file .env -p 8080:8080 mat-gwiazda-backend:local
-```
-
-### .env and secrets
-- A `.env.example` is provided. Copy it to `.env` and fill in the real values before starting with Docker Compose.
-- For local development `.env` is acceptable but **do not commit** it to the repository. For production use a secrets manager (Docker Secrets, Vault, or cloud provider secrets).
-
-<a name="available-scripts"></a>
-## Available Scripts
-
-### Frontend (see `frontend/package.json`)
-- `npm run dev` — start Astro development server
-- `npm run build` — build frontend for production
-- `npm run preview` — preview production build
-
-### Backend (Gradle wrapper)
-- `./gradlew bootRun` or `gradlew.bat bootRun` — run Spring Boot application
-- `./gradlew build` — build project artifacts
-- `./gradlew test` — run tests
-
-<a name="project-scope"></a>
-## Project Scope
-Core features (MVP):
-- AI-driven generation of math problems adjusted to user level (1–8)
-- Multiple choice questions: 4 options, 1 correct, plus brief explanation
-- User registration and login (email + password)
-- Points and stars system: 1 point per correct answer; 50 points → 1 star and level up
-- Real-time progress display: points, stars, completed tasks, time spent
-- Recording of completed tasks, scores, and session times
-
-Out of scope for MVP (to consider later):
-- Advanced analytics and reporting
-- Integration with school platforms / gradebooks
-- Teacher-created custom tasks and classroom management features
-- Native mobile apps (web-only MVP)
-
-<a name="project-status"></a>
 ## Project Status
 Status: Active development (MVP)
 
@@ -161,3 +119,5 @@ The core application flow and backend API scaffolding are present. Frontend sour
 <a name="license"></a>
 ## License
 For now this repository is unlicensed.
+
+<!-- Note: if you want to show `matGwiazda-demo.gif`, add that file to the repository root or to `public/` and update the path here (example: `![demo](public/matGwiazda-demo.gif`) -->
